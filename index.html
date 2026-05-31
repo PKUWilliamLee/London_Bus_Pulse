@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>London Bus Pulse</title>
+  <meta name="description" content="An interactive exploration of London bus demand, loading, and motion.">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-grid">
+      <div class="title-block">
+        <h1>London Bus Pulse</h1>
+        <h2>An interactive day on six central TfL bus corridors</h2>
+        <p class="authors">TfL BUSTO 2025-2026 weekday demand · route geometry and timetables from TfL Unified API</p>
+      </div>
+      <div class="header-graphic" aria-label="Animated London clock and bus routes">
+        <svg id="clock-viz" viewBox="0 0 360 230" role="img">
+          <defs>
+            <linearGradient id="skyFade" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stop-color="#ffffff"></stop>
+              <stop offset="100%" stop-color="#f1f0ec"></stop>
+            </linearGradient>
+          </defs>
+          <rect x="0" y="0" width="360" height="230" fill="url(#skyFade)"></rect>
+          <g class="clock-tower">
+            <image class="big-ben-art" href="media/big-ben-silhouette.png" x="224" y="-2" width="124" height="226" preserveAspectRatio="xMidYMid meet"></image>
+            <g class="clock-hands" transform="translate(298 102)">
+              <g class="hour-hand">
+                <path d="M0 1.3 C-0.85 0.5 -0.75 -3.1 -0.28 -5.2 L0 -6.6 L0.28 -5.2 C0.75 -3.1 0.85 0.5 0 1.3 Z"></path>
+                <path d="M-1.15 0 L0 -1.45 L1.15 0 L0 1.45 Z"></path>
+              </g>
+              <g class="minute-hand">
+                <path d="M0 1.6 C-0.72 0.7 -0.66 -4.8 -0.22 -7.6 L0 -9.2 L0.22 -7.6 C0.66 -4.8 0.72 0.7 0 1.6 Z"></path>
+                <path d="M-0.9 -6.1 L0 -7.6 L0.9 -6.1 L0 -5.35 Z"></path>
+              </g>
+              <circle class="hand-pin" cx="0" cy="0" r="1.05"></circle>
+            </g>
+          </g>
+          <g class="mini-network"></g>
+          <text class="header-time" x="22" y="198">08:00</text>
+          <text class="header-caption" x="22" y="214">drag time · buses move</text>
+        </svg>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="intro-section">
+      <div class="container prose">
+        <p>
+          This project follows the structure of a transit story: vehicles, passengers, crowding, and a route you choose.
+          The map uses real TfL bus geometries; passenger demand comes from BUSTO boardings, alightings, and vehicle load.
+        </p>
+      </div>
+    </section>
+
+    <section class="section buses-section">
+      <div class="container">
+        <h3>The Buses</h3>
+        <p class="section-copy">
+          Six selected routes thread through central London. Drag the time rail or the Marey diagram to move the day:
+          dots on the map show scheduled buses moving along real road geometry while the route strokes breathe with load.
+        </p>
+      </div>
+      <div class="viz-shell map-shell">
+        <div class="map-column">
+          <div id="london-map"></div>
+          <div class="map-note">
+            <span id="focus-label">All selected corridors</span>
+            <span id="map-time-label">08:00</span>
+          </div>
+        </div>
+        <div class="marey-column">
+          <div class="toolbar">
+            <div class="route-tabs" id="route-tabs"></div>
+            <button id="play-button" type="button" aria-label="Play or pause animation">pause</button>
+          </div>
+          <div id="marey"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section passengers-section">
+      <div class="container">
+        <h3>The Passengers</h3>
+        <p class="section-copy">
+          Every row below is a stop on the passenger route selected here. The heatmap shows how many people are on board
+          after that stop during each quarter-hour.
+        </p>
+        <div class="section-toolbar">
+          <span class="toolbar-label">Passenger route</span>
+          <div class="route-tabs passenger-tabs" id="passenger-route-tabs"></div>
+        </div>
+      </div>
+      <div class="viz-shell passenger-shell">
+        <div id="stop-heatmap"></div>
+        <aside class="side-panel">
+          <h4>At <span id="panel-time">08:00</span></h4>
+          <div id="route-summary"></div>
+          <div id="selected-stop"></div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="section crowding-section">
+      <div class="container">
+        <h3>Crowding Through the Day</h3>
+        <p class="section-copy">
+          These bands compare the selected corridors at the same time. Darker moments mean a higher vehicle load to
+          capacity ratio. Move across the bands to choose a route and time; the profile below is the selected row's
+          slice through the day.
+        </p>
+        <div class="crowding-grid">
+          <div id="crowding-bands"></div>
+          <div class="profile-shell">
+            <div id="crowding-profile"></div>
+            <aside class="profile-readout">
+              <div class="readout-title">Selected Profile</div>
+              <div id="crowding-copy"></div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section commute-section">
+      <div class="container">
+        <h3>Your Bus Ride</h3>
+        <p class="section-copy">
+          Choose one route, then drag between two stops on the small route diagram. The chart shows scheduled ride time
+          above the axis and scheduled headway from the origin stop below it.
+        </p>
+        <div class="section-toolbar">
+          <span class="toolbar-label">Ride route</span>
+          <div class="route-tabs ride-tabs" id="ride-route-tabs"></div>
+        </div>
+      </div>
+      <div class="viz-shell ride-shell">
+        <div id="ride-route-map"></div>
+        <div id="ride-chart"></div>
+        <div class="commute-readout">
+          <div class="readout-title">Selected Ride</div>
+          <div id="commute-copy">Choose two stops on a route.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="source-section">
+      <div class="container prose">
+        <h3>Source</h3>
+        <p>
+          Passenger demand is from
+          <a href="https://crowding.data.tfl.gov.uk/" target="_blank" rel="noopener">TfL BUSTO</a>
+          2025-2026 Weekday Total Demand by Route by Quarter Hour. Route geometry and scheduled timetable data are from
+          the <a href="https://tfl.gov.uk/info-for/open-data-users/unified-api" target="_blank" rel="noopener">TfL Unified API</a>.
+          The ride chart is a scheduled-service
+          view combined with typical passenger demand, not live delay data.
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://unpkg.com/d3@7.9.0/dist/d3.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="data/london_bus_pulse.js"></script>
+  <script src="scripts/app.js"></script>
+</body>
+</html>
