@@ -87,12 +87,14 @@
       <div class="container">
         <h3>The Passengers</h3>
         <p class="section-copy">
-          Every row below is a stop on the passenger route selected here. The heatmap shows how many people are on board
-          after that stop during each quarter-hour.
+          Choose a route and direction. Rows follow the selected direction's stop order, and the heatmap shows how
+          many people are on board after each stop during each quarter-hour.
         </p>
         <div class="section-toolbar">
           <span class="toolbar-label">Passenger route</span>
           <div class="route-tabs passenger-tabs" id="passenger-route-tabs"></div>
+          <span class="toolbar-label">Direction</span>
+          <div class="route-tabs direction-tabs" id="passenger-direction-tabs"></div>
         </div>
       </div>
       <div class="viz-shell passenger-shell">
@@ -130,12 +132,14 @@
       <div class="container">
         <h3>Your Bus Ride</h3>
         <p class="section-copy">
-          Choose one route, then drag between two stops on the small route diagram. The chart shows scheduled ride time
-          above the axis and scheduled headway from the origin stop below it.
+          Choose one route and direction, then drag between two stops on the small route diagram. The chart shows
+          scheduled ride time above the axis and scheduled headway from the origin stop below it.
         </p>
         <div class="section-toolbar">
           <span class="toolbar-label">Ride route</span>
           <div class="route-tabs ride-tabs" id="ride-route-tabs"></div>
+          <span class="toolbar-label">Direction</span>
+          <div class="route-tabs direction-tabs" id="ride-direction-tabs"></div>
         </div>
       </div>
       <div class="viz-shell ride-shell">

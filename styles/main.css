@@ -179,6 +179,7 @@ h4 {
 
 .section-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   margin: -6px 0 22px;
@@ -260,6 +261,7 @@ h4 {
   font: inherit;
   font-size: 13px;
   cursor: pointer;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
 }
 
 .route-tab {
@@ -268,6 +270,10 @@ h4 {
 
 .route-tab.network {
   width: 52px;
+}
+
+.route-tab.direction-tab {
+  width: 56px;
 }
 
 #play-button {
@@ -302,6 +308,21 @@ h4 {
   height: auto;
 }
 
+#stop-heatmap svg,
+#ride-route-map svg {
+  animation: viz-redraw 160ms ease-out;
+}
+
+@keyframes viz-redraw {
+  from {
+    opacity: 0.72;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
 .axis path,
 .axis line,
 .grid-line {
@@ -317,6 +338,13 @@ h4 {
 .axis-note {
   fill: #7c776f;
   font-size: 10px;
+  letter-spacing: 0.02em;
+}
+
+.axis-title {
+  fill: #5d5850;
+  font-size: 11px;
+  font-weight: 600;
   letter-spacing: 0.02em;
 }
 
@@ -494,6 +522,25 @@ h4 {
   font-size: 20px;
 }
 
+.direction-pair {
+  display: grid;
+  gap: 4px;
+  margin: 4px 0 14px;
+  color: #6d675f;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.direction-label {
+  color: #6d675f;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.panel-direction {
+  margin: 6px 0 10px;
+}
+
 .segment-line {
   fill: none;
   stroke: #25221f;
@@ -539,6 +586,11 @@ h4 {
 .ride-route-title {
   fill: #5d5850;
   font-size: 11px;
+}
+
+.ride-direction-title {
+  fill: #77736c;
+  font-size: 9px;
 }
 
 .zero-line {

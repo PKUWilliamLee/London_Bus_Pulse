@@ -19,8 +19,10 @@
     rideTime: 8 * 60,
     activeRoute: ALL_ROUTES,
     passengerRoute: "24",
+    passengerDir: "1",
     crowdingRoute: "24",
     rideRoute: "24",
+    rideDir: "1",
     playing: true,
     hoverStop: null,
     passengerHoverStop: null,
@@ -36,6 +38,10 @@
   const passengerRouteId = () => state.passengerRoute || "24";
   const crowdingRouteId = () => state.crowdingRoute || "24";
   const rideRouteId = () => state.rideRoute || "24";
+  const directionIds = (routeId) => Object.keys(routeById.get(routeId)?.directions || {}).sort();
+  const normalizeDirection = (routeId, dirId) => directionIds(routeId).includes(dirId) ? dirId : "1";
+  const passengerDirectionId = () => normalizeDirection(passengerRouteId(), state.passengerDir);
+  const rideDirectionId = () => normalizeDirection(rideRouteId(), state.rideDir);
   const isNetworkMode = () => state.activeRoute === ALL_ROUTES;
   const routeIsActive = (routeId) => isNetworkMode() || routeId === state.activeRoute;
 
@@ -66,6 +72,28 @@
   function getStopDemand(routeId, dirId, stopIndex, minute = state.busTime) {
     const record = getDemand(routeId, dirId, minute);
     return record ? record.stops.find((s) => s.i === stopIndex) : null;
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function directionEndpoints(route, dirId) {
+    const direction = route.directions[dirId];
+    const stops = direction?.stops || [];
+    const from = direction?.from || stops[0]?.name || "Unknown origin";
+    const to = direction?.to || stops[stops.length - 1]?.name || "Unknown destination";
+    return { from, to };
+  }
+
+  function directionLabel(route, dirId) {
+    const { from, to } = directionEndpoints(route, dirId);
+    return `${from} → ${to}`;
   }
 
   function coordDistance(a, b) {
@@ -191,8 +219,20 @@
 
   function setPassengerRoute(routeId) {
     state.passengerRoute = routeId;
+    state.passengerDir = passengerDirectionId();
     state.passengerHoverStop = null;
     renderPassengerRouteTabs();
+    renderPassengerDirectionTabs();
+    drawHeatmap();
+    updatePassenger();
+  }
+
+  function setPassengerDirection(dirId) {
+    const route = routeById.get(passengerRouteId());
+    if (!route?.directions[dirId]) return;
+    state.passengerDir = dirId;
+    state.passengerHoverStop = null;
+    renderPassengerDirectionTabs();
     drawHeatmap();
     updatePassenger();
   }
@@ -206,8 +246,22 @@
   function setRideRoute(routeId) {
     if (!routeById.has(routeId)) return;
     state.rideRoute = routeId;
-    state.rideSelection = defaultSelection(routeId);
+    state.rideDir = rideDirectionId();
+    state.rideDragging = false;
+    state.rideSelection = defaultSelection(routeId, state.rideDir);
     renderRideRouteTabs();
+    renderRideDirectionTabs();
+    drawRideSelector();
+    updateRide();
+  }
+
+  function setRideDirection(dirId) {
+    const route = routeById.get(rideRouteId());
+    if (!route?.directions[dirId]) return;
+    state.rideDir = dirId;
+    state.rideDragging = false;
+    state.rideSelection = defaultSelection(state.rideRoute, dirId);
+    renderRideDirectionTabs();
     drawRideSelector();
     updateRide();
   }
@@ -250,6 +304,17 @@
     return { load, board, alight, vc };
   }
 
+  function summarizeDirectionAt(routeId, dirId, minute = state.busTime) {
+    const demand = getDemand(routeId, dirId, minute);
+    if (!demand) return { load: 0, board: 0, alight: 0, vc: 0 };
+    return {
+      load: d3.max(demand.stops, (s) => s.l) || 0,
+      board: d3.sum(demand.stops, (s) => s.b),
+      alight: d3.sum(demand.stops, (s) => s.a),
+      vc: d3.max(demand.stops, (s) => s.vc) || 0,
+    };
+  }
+
   function renderRouteTabs() {
     const tabs = [{ id: ALL_ROUTES, label: "All", color: "#35312c" }, ...routes];
     d3.select("#route-tabs")
@@ -275,6 +340,21 @@
       .on("click", (_, d) => setPassengerRoute(d.id));
   }
 
+  function renderPassengerDirectionTabs() {
+    const route = routeById.get(passengerRouteId());
+    d3.select("#passenger-direction-tabs")
+      .selectAll("button")
+      .data(directionIds(route.id), (d) => d)
+      .join("button")
+      .attr("class", (d) => `route-tab direction-tab${d === passengerDirectionId() ? " active" : ""}`)
+      .attr("aria-label", (d) => `Show passenger Direction ${d}`)
+      .attr("title", (d) => `Direction ${d}: ${directionLabel(route, d)}`)
+      .style("border-color", (d) => d === passengerDirectionId() ? route.color : null)
+      .style("background", (d) => d === passengerDirectionId() ? route.color : null)
+      .text((d) => `Dir ${d}`)
+      .on("click", (_, d) => setPassengerDirection(d));
+  }
+
   function renderRideRouteTabs() {
     d3.select("#ride-route-tabs")
       .selectAll("button")
@@ -287,6 +367,21 @@
       .on("click", (_, d) => setRideRoute(d.id));
   }
 
+  function renderRideDirectionTabs() {
+    const route = routeById.get(rideRouteId());
+    d3.select("#ride-direction-tabs")
+      .selectAll("button")
+      .data(directionIds(route.id), (d) => d)
+      .join("button")
+      .attr("class", (d) => `route-tab direction-tab${d === rideDirectionId() ? " active" : ""}`)
+      .attr("aria-label", (d) => `Show ride Direction ${d}`)
+      .attr("title", (d) => `Direction ${d}: ${directionLabel(route, d)}`)
+      .style("border-color", (d) => d === rideDirectionId() ? route.color : null)
+      .style("background", (d) => d === rideDirectionId() ? route.color : null)
+      .text((d) => `Dir ${d}`)
+      .on("click", (_, d) => setRideDirection(d));
+  }
+
   d3.select("#play-button").on("click", function () {
     state.playing = !state.playing;
     d3.select(this).classed("active", !state.playing).text(state.playing ? "pause" : "play");
@@ -294,7 +389,9 @@
 
   renderRouteTabs();
   renderPassengerRouteTabs();
+  renderPassengerDirectionTabs();
   renderRideRouteTabs();
+  renderRideDirectionTabs();
 
   /* Header clock and miniature route network */
   const clockSvg = d3.select("#clock-viz");
@@ -656,7 +753,8 @@
 
   function drawHeatmap() {
     const route = routeById.get(passengerRouteId());
-    const direction = route.directions["1"];
+    const dirId = passengerDirectionId();
+    const direction = route.directions[dirId];
     const rows = direction.stops;
     const height = heatBox.margin.top + heatBox.margin.bottom + rows.length * heatBox.rowHeight;
     const width = heatBox.width - heatBox.margin.left - heatBox.margin.right;
@@ -667,7 +765,7 @@
 
     const cells = [];
     timebands.forEach((minute) => {
-      const demand = getDemand(route.id, "1", minute);
+      const demand = getDemand(route.id, dirId, minute);
       if (!demand) return;
       demand.stops.forEach((stop) => {
         cells.push({ minute, ...stop });
@@ -703,7 +801,7 @@
       .on("mousemove", (event, d) => {
         setPassengerTime(d.minute);
         const stop = direction.stops[d.i];
-        state.passengerHoverStop = { ...stop, route: route.id, dir: "1" };
+        state.passengerHoverStop = { ...stop, route: route.id, dir: dirId };
         showTooltip(
           `<strong>${stop ? stop.name : "Stop"}</strong><br>${formatTime(d.minute)} · load ${d.l.toFixed(1)}<br>` +
           `board ${d.b.toFixed(1)} · alight ${d.a.toFixed(1)} · V/C ${d.vc.toFixed(2)}`,
@@ -727,23 +825,26 @@
       .attr("x2", heatScales.x(nearestTime(state.passengerTime)) + heatScales.x.bandwidth() / 2);
 
     const route = routeById.get(passengerRouteId());
-    const summary = summarizeRouteAt(route.id, state.passengerTime);
+    const dirId = passengerDirectionId();
+    const summary = summarizeDirectionAt(route.id, dirId, state.passengerTime);
     d3.select("#panel-time").text(formatTime(state.passengerTime));
     d3.select("#route-summary").html(`
       <div class="stat-row"><span>Passenger route</span><strong>${route.id}</strong></div>
+      <div class="stat-row"><span>Heatmap direction</span><strong>Direction ${dirId}</strong></div>
+      <p class="direction-label panel-direction">${escapeHtml(directionLabel(route, dirId))}</p>
       <div class="stat-row"><span>Current boardings</span><strong>${summary.board.toFixed(1)}</strong></div>
       <div class="stat-row"><span>Current alightings</span><strong>${summary.alight.toFixed(1)}</strong></div>
       <div class="stat-row"><span>Peak load now</span><strong>${summary.load.toFixed(1)}</strong></div>
       <div class="stat-row"><span>Peak V/C now</span><strong>${summary.vc.toFixed(2)}</strong></div>
     `);
-    if (state.passengerHoverStop && state.passengerHoverStop.route === route.id) {
+    if (state.passengerHoverStop && state.passengerHoverStop.route === route.id && state.passengerHoverStop.dir === dirId) {
       const demand = getStopDemand(route.id, state.passengerHoverStop.dir, state.passengerHoverStop.index, state.passengerTime);
       d3.select("#selected-stop").html(`
-        <p><strong>${state.passengerHoverStop.name}</strong></p>
+        <p><strong>${escapeHtml(state.passengerHoverStop.name)}</strong></p>
         <p>Board ${demand ? demand.b.toFixed(1) : "0"} · alight ${demand ? demand.a.toFixed(1) : "0"} · load ${demand ? demand.l.toFixed(1) : "0"}</p>
       `);
     } else {
-      d3.select("#selected-stop").html(`<p>${route.note}</p><p class="panel-note">Passenger route selection is independent from the crowding and ride panels.</p>`);
+      d3.select("#selected-stop").html(`<p>${escapeHtml(route.note)}</p><p class="panel-note">Passenger route and direction are independent from the crowding and ride panels.</p>`);
     }
   }
 
@@ -853,6 +954,13 @@
     g.append("g")
       .attr("class", "axis")
       .call(d3.axisLeft(y).ticks(4).tickSize(-width));
+    g.append("text")
+      .attr("class", "axis-title")
+      .attr("transform", "rotate(-90)")
+      .attr("x", -height / 2)
+      .attr("y", -44)
+      .attr("text-anchor", "middle")
+      .text("Peak load");
 
     g.append("path")
       .attr("class", "crowding-profile-line");
@@ -888,7 +996,11 @@
       .attr("x1", profileScales.x(state.crowdingTime))
       .attr("x2", profileScales.x(state.crowdingTime));
     d3.select("#crowding-copy").html(`
-      <p><strong>Route ${routeId}</strong> · ${route.name}</p>
+      <p><strong>Route ${routeId}</strong></p>
+      <p class="direction-pair">
+        <span>Direction 1: ${escapeHtml(directionLabel(route, "1"))}</span>
+        <span>Direction 2: ${escapeHtml(directionLabel(route, "2"))}</span>
+      </p>
       <div class="stat-row"><span>Selected time</span><strong>${formatTime(state.crowdingTime)}</strong></div>
       <div class="stat-row"><span>Peak load</span><strong>${current.load.toFixed(1)}</strong></div>
       <div class="stat-row"><span>Boardings</span><strong>${current.board.toFixed(1)}</strong></div>
@@ -925,12 +1037,13 @@
     return clean.length ? d3.quantile(clean, q) : null;
   }
 
-  function defaultSelection(routeId = rideRouteId()) {
+  function defaultSelection(routeId = rideRouteId(), dirId = rideDirectionId()) {
     const route = routeById.get(routeId) || routeById.get("24");
-    const stops = route.directions["1"].stops;
+    const dir = normalizeDirection(route.id, dirId);
+    const stops = route.directions[dir].stops;
     return {
       route: route.id,
-      dir: "1",
+      dir,
       start: Math.floor(stops.length * 0.25),
       end: Math.floor(stops.length * 0.7),
     };
@@ -940,12 +1053,13 @@
     if (!selection) return null;
     const route = routeById.get(selection.route);
     if (!route) return null;
-    const direction = route.directions[selection.dir] || route.directions["1"];
+    const dir = normalizeDirection(route.id, selection.dir);
+    const direction = route.directions[dir];
     const maxIndex = direction.stops.length - 1;
     const start = Math.max(0, Math.min(maxIndex, Math.min(selection.start, selection.end)));
     const end = Math.max(0, Math.min(maxIndex, Math.max(selection.start, selection.end)));
     if (start === end) return null;
-    return { route: route.id, dir: selection.dir, start, end };
+    return { route: route.id, dir, start, end };
   }
 
   function timeAtStop(trip, stopIndex) {
@@ -1078,8 +1192,8 @@
   }
 
   function currentRideSelection() {
-    if (!state.rideSelection || state.rideSelection.route !== rideRouteId()) {
-      state.rideSelection = defaultSelection(rideRouteId());
+    if (!state.rideSelection || state.rideSelection.route !== rideRouteId() || state.rideSelection.dir !== rideDirectionId()) {
+      state.rideSelection = defaultSelection(rideRouteId(), rideDirectionId());
     }
     return state.rideSelection;
   }
@@ -1090,7 +1204,8 @@
 
   function drawRideSelector() {
     const route = routeById.get(rideRouteId());
-    const direction = route.directions["1"];
+    const dirId = rideDirectionId();
+    const direction = route.directions[dirId];
     const coords = direction.paths.flat();
     const lonExtent = d3.extent(coords, (d) => d[0]);
     const latExtent = d3.extent(coords, (d) => d[1]);
@@ -1128,7 +1243,7 @@
       .attr("r", 4.2)
       .on("pointerdown", (event, d) => {
         state.rideDragging = true;
-        state.rideSelection = { route: route.id, dir: "1", start: d.index, end: d.index };
+        state.rideSelection = { route: route.id, dir: dirId, start: d.index, end: d.index };
         event.preventDefault();
         updateRide();
       })
@@ -1138,7 +1253,7 @@
         updateRide();
       })
       .on("mousemove", (event, d) => {
-        showTooltip(`<strong>${d.name}</strong><br>Route ${route.id}`, event);
+        showTooltip(`<strong>${escapeHtml(d.name)}</strong><br>Route ${route.id}<br>Direction ${dirId}`, event);
       })
       .on("mouseleave", hideTooltip);
 
@@ -1149,9 +1264,16 @@
     g.append("text")
       .attr("class", "ride-route-title")
       .attr("x", width / 2)
-      .attr("y", height + 28)
+      .attr("y", height + 22)
       .attr("text-anchor", "middle")
-      .text(`Route ${route.id}: ${route.name}`);
+      .text(`Route ${route.id} - Direction ${dirId}`);
+
+    g.append("text")
+      .attr("class", "ride-direction-title")
+      .attr("x", width / 2)
+      .attr("y", height + 38)
+      .attr("text-anchor", "middle")
+      .text(directionLabel(route, dirId));
 
     updateRideSelector();
   }
@@ -1159,8 +1281,8 @@
   function updateRideSelector() {
     if (!rideSelectorScales) return;
     const route = routeById.get(rideRouteId());
-    const direction = route.directions["1"];
     const selection = currentRideSelection();
+    const direction = route.directions[selection.dir];
     const lo = Math.min(selection.start, selection.end);
     const hi = Math.max(selection.start, selection.end);
     const segmentStops = direction.stops.slice(lo, hi + 1);
@@ -1333,7 +1455,9 @@
     const next = nextRide(trips, state.rideTime);
     const headway = next ? cleanHeadway(next.headway) : null;
     d3.select("#commute-copy").html(`
-      <p><strong>Route ${selection.route}</strong> · ${start.name} to ${end.name}</p>
+      <p><strong>Route ${selection.route}</strong><br>
+      <span class="direction-label">Direction ${selection.dir}: ${escapeHtml(directionLabel(route, selection.dir))}</span><br>
+      ${escapeHtml(start.name)} to ${escapeHtml(end.name)}</p>
       <div class="stat-row"><span>Selected time</span><strong>${formatTime(state.rideTime)}</strong></div>
       <div class="stat-row"><span>Next scheduled bus</span><strong>${next ? formatTime(next.startTime) : "—"}</strong></div>
       <div class="stat-row"><span>Planned wait</span><strong>${next ? minuteText(Math.max(0, next.startTime - state.rideTime)) : "—"}</strong></div>
