@@ -5,11 +5,13 @@
   const ALL_ROUTES = "all";
   const routeIds = data.meta.routes;
   const routes = routeIds.map((id) => data.routes[id]);
-  const timeRange = data.meta.timeRange;
+  const demandTimeRange = data.meta.timeRange;
+  const timeRange = [demandTimeRange[0], Math.max(24 * 60, demandTimeRange[1])];
   const timebands = Array.from(new Set(data.demand.map((d) => d.minute))).sort((a, b) => a - b);
   const demandIndex = new Map(data.demand.map((d) => [`${d.route}|${d.dir}|${d.minute}`, d]));
   const maxLoad = d3.max(data.demand, (d) => d3.max(d.stops, (s) => s.l));
   const maxBoard = d3.max(data.demand, (d) => d3.max(d.stops, (s) => s.b));
+  const maxAlight = d3.max(data.demand, (d) => d3.max(d.stops, (s) => s.a));
   const maxVC = d3.max(data.demand, (d) => d3.max(d.stops, (s) => s.vc));
 
   const state = {
@@ -20,17 +22,30 @@
     activeRoute: ALL_ROUTES,
     passengerRoute: "24",
     passengerDir: "1",
+    passengerOrder: "route",
+    passengerMetric: "load",
     crowdingRoute: "24",
     rideRoute: "24",
     rideDir: "1",
     playing: true,
     hoverStop: null,
     passengerHoverStop: null,
+    passengerSelectedStop: null,
     rideSelection: null,
     rideDragging: false,
   };
 
   const tooltip = d3.select("body").append("div").attr("class", "tooltip").style("display", "none");
+
+  const passengerOrderOptions = [
+    { id: "route", label: "Route" },
+    { id: "rank", label: "Busiest" },
+  ];
+  const passengerMetricOptions = [
+    { id: "load", label: "Load", field: "l", max: maxLoad, noun: "load", detail: "Load after stop" },
+    { id: "board", label: "Board", field: "b", max: maxBoard, noun: "boardings", detail: "Boardings" },
+    { id: "alight", label: "Alight", field: "a", max: maxAlight, noun: "alightings", detail: "Alightings" },
+  ];
 
   const colorByRoute = new Map(routes.map((route) => [route.id, route.color]));
   const routeById = new Map(routes.map((route) => [route.id, route]));
@@ -61,8 +76,19 @@
   }
 
   function nearestTime(minute) {
-    const clamped = Math.max(timeRange[0], Math.min(timeRange[1], minute));
+    const clamped = Math.max(demandTimeRange[0], Math.min(demandTimeRange[1], minute));
     return Math.round(clamped / 15) * 15;
+  }
+
+  function clampTime(minute) {
+    return Math.max(timeRange[0], Math.min(timeRange[1], minute));
+  }
+
+  function wrapBusTime(minute) {
+    const range = timeRange[1] - timeRange[0];
+    if (range <= 0) return timeRange[0];
+    if (minute <= timeRange[1]) return minute;
+    return timeRange[0] + ((minute - timeRange[0]) % range);
   }
 
   function getDemand(routeId, dirId, minute = state.busTime) {
@@ -72,6 +98,107 @@
   function getStopDemand(routeId, dirId, stopIndex, minute = state.busTime) {
     const record = getDemand(routeId, dirId, minute);
     return record ? record.stops.find((s) => s.i === stopIndex) : null;
+  }
+
+  function passengerMetricDef(metricId = state.passengerMetric) {
+    return passengerMetricOptions.find((metric) => metric.id === metricId) || passengerMetricOptions[0];
+  }
+
+  function passengerCellValue(cell, metricId = state.passengerMetric) {
+    const metric = passengerMetricDef(metricId);
+    return cell ? Number(cell[metric.field] || 0) : 0;
+  }
+
+  function passengerRankValue(stop, metricId = state.passengerMetric) {
+    if (metricId === "board") return stop.totalBoard;
+    if (metricId === "alight") return stop.totalAlight;
+    return stop.peakLoad;
+  }
+
+  function passengerStopKey(stop) {
+    return stop ? `${stop.route}|${stop.dir}|${stop.index}` : "";
+  }
+
+  function isPassengerStopInView(stop) {
+    return stop && stop.route === passengerRouteId() && stop.dir === passengerDirectionId();
+  }
+
+  function passengerFocusStop() {
+    if (isPassengerStopInView(state.passengerSelectedStop)) return state.passengerSelectedStop;
+    if (isPassengerStopInView(state.passengerHoverStop)) return state.passengerHoverStop;
+    return null;
+  }
+
+  function passengerStopStats(routeId = passengerRouteId(), dirId = passengerDirectionId()) {
+    const route = routeById.get(routeId);
+    const direction = route.directions[dirId];
+    const stats = new Map(direction.stops.map((stop) => [stop.index, {
+      ...stop,
+      route: route.id,
+      dir: dirId,
+      totalBoard: 0,
+      totalAlight: 0,
+      peakLoad: 0,
+      peakVC: 0,
+      peakMinute: timebands[0] || 0,
+      metricPeak: 0,
+      metricPeakMinute: timebands[0] || 0,
+    }]));
+
+    timebands.forEach((minute) => {
+      const demand = getDemand(route.id, dirId, minute);
+      if (!demand) return;
+      demand.stops.forEach((cell) => {
+        const stop = stats.get(cell.i);
+        if (!stop) return;
+        stop.totalBoard += cell.b;
+        stop.totalAlight += cell.a;
+        if (cell.l > stop.peakLoad) {
+          stop.peakLoad = cell.l;
+          stop.peakMinute = minute;
+        }
+        stop.peakVC = Math.max(stop.peakVC, cell.vc);
+        const metricValue = passengerCellValue(cell);
+        if (metricValue > stop.metricPeak) {
+          stop.metricPeak = metricValue;
+          stop.metricPeakMinute = minute;
+        }
+      });
+    });
+
+    const ranked = Array.from(stats.values()).sort((a, b) =>
+      d3.descending(passengerRankValue(a), passengerRankValue(b)) || d3.ascending(a.index, b.index)
+    );
+    ranked.forEach((stop, index) => {
+      stop.rank = index + 1;
+    });
+    return Array.from(stats.values());
+  }
+
+  function passengerRows() {
+    const rows = passengerStopStats();
+    if (state.passengerOrder === "rank") {
+      return rows.sort((a, b) =>
+        d3.descending(passengerRankValue(a), passengerRankValue(b)) || d3.ascending(a.index, b.index)
+      );
+    }
+    return rows.sort((a, b) => d3.ascending(a.index, b.index));
+  }
+
+  function resolvedPassengerFocus(rows = passengerRows()) {
+    const focus = passengerFocusStop();
+    const key = passengerStopKey(focus);
+    const explicitFocus = rows.find((row) => passengerStopKey(row) === key);
+    if (explicitFocus) return explicitFocus;
+
+    const routeId = passengerRouteId();
+    const dirId = passengerDirectionId();
+    const minute = nearestTime(state.passengerTime);
+    return rows.reduce((best, row) => {
+      const value = passengerCellValue(getStopDemand(routeId, dirId, row.index, minute));
+      if (!best || value > best.value) return { row, value };
+      return best;
+    }, null)?.row || rows[0] || null;
   }
 
   function escapeHtml(value) {
@@ -94,6 +221,21 @@
   function directionLabel(route, dirId) {
     const { from, to } = directionEndpoints(route, dirId);
     return `${from} → ${to}`;
+  }
+
+  function offsetProjectedPoint(coord, metric, fraction, projector, offsetPx, side) {
+    const before = pointAlong(metric, Math.max(0, fraction - 0.004)) || coord;
+    const after = pointAlong(metric, Math.min(1, fraction + 0.004)) || coord;
+    const center = projector(coord);
+    const p0 = projector(before);
+    const p1 = projector(after);
+    const vx = p1[0] - p0[0];
+    const vy = p1[1] - p0[1];
+    const length = Math.hypot(vx, vy) || 1;
+    return [
+      center[0] + (-vy / length) * offsetPx * side,
+      center[1] + (vx / length) * offsetPx * side,
+    ];
   }
 
   function coordDistance(a, b) {
@@ -173,23 +315,52 @@
   function activeBuses(route, dirId, minute = state.busTime) {
     const direction = route.directions[dirId];
     return direction.trips
-      .filter((trip) => {
+      .map((trip, tripIndex) => ({ trip, tripIndex }))
+      .filter(({ trip }) => {
         const points = trip.points;
         return points.length && minute >= points[0][1] && minute <= points[points.length - 1][1];
       })
-      .map((trip) => {
+      .map(({ trip, tripIndex }) => {
         const points = trip.points;
         const start = points[0][1];
         const end = points[points.length - 1][1];
         const fraction = (minute - start) / Math.max(1, end - start);
         const coord = pointAlong(direction.metric, fraction);
-        return { route: route.id, dir: dirId, coord, fraction };
+        const key = `${route.id}-${dirId}-${trip.depart}-${tripIndex}`;
+        return { key, route: route.id, dir: dirId, coord, fraction };
       })
       .filter((d) => d.coord);
   }
 
+  function interpolateTripPoint(a, b, targetTime) {
+    const span = b[1] - a[1] || 1;
+    const fraction = (targetTime - a[1]) / span;
+    return [
+      a[0] + (b[0] - a[0]) * fraction,
+      targetTime,
+    ];
+  }
+
+  function clipTripPoints(points, range = timeRange) {
+    const [startTime, endTime] = range;
+    const clipped = [];
+    points.forEach((point, index) => {
+      const previous = points[index - 1];
+      if (previous && previous[1] < startTime && point[1] >= startTime) {
+        clipped.push(interpolateTripPoint(previous, point, startTime));
+      }
+      if (point[1] >= startTime && point[1] <= endTime) {
+        clipped.push(point);
+      }
+      if (previous && previous[1] <= endTime && point[1] > endTime) {
+        clipped.push(interpolateTripPoint(previous, point, endTime));
+      }
+    });
+    return clipped;
+  }
+
   function setBusTime(minute, fromUser) {
-    state.busTime = nearestTime(minute);
+    state.busTime = clampTime(minute);
     if (fromUser) state.playing = false;
     updateBuses();
   }
@@ -221,6 +392,7 @@
     state.passengerRoute = routeId;
     state.passengerDir = passengerDirectionId();
     state.passengerHoverStop = null;
+    state.passengerSelectedStop = null;
     renderPassengerRouteTabs();
     renderPassengerDirectionTabs();
     drawHeatmap();
@@ -232,7 +404,24 @@
     if (!route?.directions[dirId]) return;
     state.passengerDir = dirId;
     state.passengerHoverStop = null;
+    state.passengerSelectedStop = null;
     renderPassengerDirectionTabs();
+    drawHeatmap();
+    updatePassenger();
+  }
+
+  function setPassengerOrder(orderId) {
+    if (!passengerOrderOptions.some((option) => option.id === orderId)) return;
+    state.passengerOrder = orderId;
+    renderPassengerOrderTabs();
+    drawHeatmap();
+    updatePassenger();
+  }
+
+  function setPassengerMetric(metricId) {
+    if (!passengerMetricOptions.some((option) => option.id === metricId)) return;
+    state.passengerMetric = metricId;
+    renderPassengerMetricTabs();
     drawHeatmap();
     updatePassenger();
   }
@@ -355,6 +544,29 @@
       .on("click", (_, d) => setPassengerDirection(d));
   }
 
+  function renderPassengerOrderTabs() {
+    d3.select("#passenger-order-tabs")
+      .selectAll("button")
+      .data(passengerOrderOptions, (d) => d.id)
+      .join("button")
+      .attr("class", (d) => `route-tab compact-tab${d.id === state.passengerOrder ? " active" : ""}`)
+      .text((d) => d.label)
+      .on("click", (_, d) => setPassengerOrder(d.id));
+  }
+
+  function renderPassengerMetricTabs() {
+    const route = routeById.get(passengerRouteId());
+    d3.select("#passenger-metric-tabs")
+      .selectAll("button")
+      .data(passengerMetricOptions, (d) => d.id)
+      .join("button")
+      .attr("class", (d) => `route-tab metric-tab${d.id === state.passengerMetric ? " active" : ""}`)
+      .style("border-color", (d) => d.id === state.passengerMetric ? route.color : null)
+      .style("background", (d) => d.id === state.passengerMetric ? route.color : null)
+      .text((d) => d.label)
+      .on("click", (_, d) => setPassengerMetric(d.id));
+  }
+
   function renderRideRouteTabs() {
     d3.select("#ride-route-tabs")
       .selectAll("button")
@@ -387,9 +599,41 @@
     d3.select(this).classed("active", !state.playing).text(state.playing ? "pause" : "play");
   });
 
+  function initSectionNav() {
+    const links = Array.from(document.querySelectorAll(".section-nav-dot"));
+    const sections = links
+      .map((link) => document.querySelector(link.getAttribute("href")))
+      .filter(Boolean);
+
+    links.forEach((link) => {
+      link.addEventListener("click", (event) => {
+        const target = document.querySelector(link.getAttribute("href"));
+        if (!target) return;
+        event.preventDefault();
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries
+        .filter((entry) => entry.isIntersecting)
+        .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (!visible) return;
+      links.forEach((link) => {
+        link.classList.toggle("active", link.getAttribute("href") === `#${visible.target.id}`);
+      });
+    }, { rootMargin: "-42% 0px -42% 0px", threshold: [0, 0.25, 0.5, 0.75] });
+
+    sections.forEach((section) => observer.observe(section));
+  }
+
+  initSectionNav();
+
   renderRouteTabs();
   renderPassengerRouteTabs();
   renderPassengerDirectionTabs();
+  renderPassengerOrderTabs();
+  renderPassengerMetricTabs();
   renderRideRouteTabs();
   renderRideDirectionTabs();
 
@@ -407,6 +651,10 @@
   const miniY = d3.scaleLinear().domain([latExtent[0] - latPad, latExtent[1] + latPad]).range([174, 28]);
   function miniProject(coord) {
     return [miniX(coord[0]), miniY(coord[1])];
+  }
+  function miniBusPoint(bus) {
+    const direction = routeById.get(bus.route).directions[bus.dir];
+    return offsetProjectedPoint(bus.coord, direction.metric, bus.fraction, miniProject, 3.6, 1);
   }
   const miniLine = d3.line()
     .x((d) => miniProject(d)[0])
@@ -433,13 +681,14 @@
 
     const buses = routes.flatMap((route) => ["1", "2"].flatMap((dir) => activeBuses(route, dir, state.busTime).slice(0, 10)));
     miniBusLayer.selectAll(".mini-bus")
-      .data(buses, (d, i) => `${d.route}-${d.dir}-${i}`)
+      .data(buses, (d) => d.key)
       .join("circle")
-      .attr("class", "mini-bus")
-      .attr("r", 3)
+      .attr("class", (d) => `mini-bus dir-${d.dir}`)
+      .attr("r", 2.5)
       .attr("fill", (d) => colorByRoute.get(d.route))
-      .attr("cx", (d) => miniProject(d.coord)[0])
-      .attr("cy", (d) => miniProject(d.coord)[1]);
+      .attr("stroke", "#fff")
+      .attr("cx", (d) => miniBusPoint(d)[0])
+      .attr("cy", (d) => miniBusPoint(d)[1]);
   }
 
   /* Leaflet base map with D3 overlay */
@@ -475,6 +724,12 @@
     return [point.x, point.y];
   }
 
+  function projectBus(bus) {
+    const direction = routeById.get(bus.route).directions[bus.dir];
+    const offset = routeIsActive(bus.route) ? (isNetworkMode() ? 4.8 : 6.5) : 3.4;
+    return offsetProjectedPoint(bus.coord, direction.metric, bus.fraction, project, offset, 1);
+  }
+
   const mapLine = d3.line()
     .x((d) => project(d)[0])
     .y((d) => project(d)[1])
@@ -505,7 +760,7 @@
         enter.append("path")
           .attr("class", "route-path shadow")
           .attr("d", (d) => mapLine(d.path))
-          .attr("stroke-width", 8);
+          .attr("stroke-width", 5.5);
         return enter.append("path")
           .attr("class", "route-path base")
           .attr("stroke", (d) => d.route.color)
@@ -526,12 +781,7 @@
       .attr("class", (d) => {
         return `stop-dot${!routeIsActive(d.route) ? " inactive" : ""}`;
       })
-      .attr("r", (d) => {
-        const demand = getStopDemand(d.route, d.dir, d.index, state.busTime);
-        const base = routeIsActive(d.route) ? 3.2 : 1.8;
-        return base + Math.sqrt((demand ? demand.b + demand.a : 0) / Math.max(1, maxBoard)) * 8;
-      })
-      .attr("fill", "#fff")
+      .attr("r", (d) => routeIsActive(d.route) ? (isNetworkMode() ? 1.7 : 2.15) : 1.25)
       .attr("stroke", (d) => d.color)
       .attr("cx", (d) => projectStop(d)[0])
       .attr("cy", (d) => projectStop(d)[1])
@@ -590,34 +840,31 @@
       .classed("dimmed", (d) => !routeIsActive(d.route.id))
       .attr("stroke-width", (d) => {
         const summary = summarizeRouteAt(d.route.id, state.busTime);
-        const width = 2.1 + (summary.load / maxLoad) * 7;
-        return routeIsActive(d.route.id) ? width + (isNetworkMode() ? 0.5 : 1.8) : Math.max(1.5, width * 0.55);
+        const width = 1.6 + (summary.load / maxLoad) * 1.4;
+        return routeIsActive(d.route.id) ? width + (isNetworkMode() ? 0.1 : 0.8) : Math.max(1.1, width * 0.5);
       })
-      .attr("stroke-opacity", (d) => routeIsActive(d.route.id) ? (isNetworkMode() ? 0.62 : 0.82) : 0.3);
+      .attr("stroke-opacity", (d) => routeIsActive(d.route.id) ? (isNetworkMode() ? 0.42 : 0.66) : 0.16);
 
     const buses = routes.flatMap((route) =>
       ["1", "2"].flatMap((dir) => activeBuses(route, dir, state.busTime).slice(0, routeIsActive(route.id) ? (isNetworkMode() ? 11 : 22) : 8))
     );
 
     busLayer.selectAll(".bus-dot")
-      .data(buses, (d, i) => `${d.route}-${d.dir}-${i}`)
+      .data(buses, (d) => d.key)
       .join("circle")
-      .attr("class", "bus-dot")
-      .attr("r", (d) => routeIsActive(d.route) ? (isNetworkMode() ? 3.2 : 4.3) : 2.7)
+      .attr("class", (d) => `bus-dot dir-${d.dir}`)
+      .attr("r", (d) => routeIsActive(d.route) ? (isNetworkMode() ? 3.1 : 4.2) : 2.4)
       .attr("fill", (d) => colorByRoute.get(d.route))
-      .attr("opacity", (d) => routeIsActive(d.route) ? (isNetworkMode() ? 0.72 : 0.95) : 0.42)
-      .attr("cx", (d) => project(d.coord)[0])
-      .attr("cy", (d) => project(d.coord)[1]);
+      .attr("stroke", "#fff")
+      .attr("opacity", (d) => routeIsActive(d.route) ? (isNetworkMode() ? 0.82 : 0.96) : 0.3)
+      .attr("cx", (d) => projectBus(d)[0])
+      .attr("cy", (d) => projectBus(d)[1]);
 
     stopLayer.selectAll(".stop-dot")
       .attr("class", (d) => {
         return `stop-dot${!routeIsActive(d.route) ? " inactive" : ""}`;
       })
-      .attr("r", (d) => {
-        const demand = getStopDemand(d.route, d.dir, d.index, state.busTime);
-        const base = routeIsActive(d.route) ? 3.2 : 1.8;
-        return base + Math.sqrt((demand ? demand.b + demand.a : 0) / Math.max(1, maxBoard)) * 8;
-      });
+      .attr("r", (d) => routeIsActive(d.route) ? (isNetworkMode() ? 1.7 : 2.15) : 1.25);
 
     segmentLayer.selectAll(".segment-line")
       .data([])
@@ -644,76 +891,144 @@
 
   function drawMarey() {
     const route = routeById.get(detailRouteId());
-    const maxStops = isNetworkMode() ? 1 : d3.max(Object.values(route.directions), (direction) => direction.stops.length) - 1;
     const width = mareyBox.width - mareyBox.margin.left - mareyBox.margin.right;
     const height = mareyBox.height - mareyBox.margin.top - mareyBox.margin.bottom;
-    const x = d3.scaleLinear().domain([0, maxStops]).range([0, width]);
     const y = d3.scaleLinear().domain(timeRange).range([0, height]);
-    mareyScales = { x, y, width, height };
+    mareyScales = { y, width, height };
 
     const svg = d3.select("#marey").html("").append("svg")
       .attr("viewBox", `0 0 ${mareyBox.width} ${mareyBox.height}`);
     const g = svg.append("g").attr("transform", `translate(${mareyBox.margin.left},${mareyBox.margin.top})`);
 
+    const mareyTicks = [...d3.range(5 * 60, 24 * 60, 120), 24 * 60];
     g.append("g")
       .attr("class", "axis")
-      .call(d3.axisLeft(y).tickValues(d3.range(5 * 60, 25 * 60, 120)).tickFormat(formatTime).tickSize(-width));
+      .call(d3.axisLeft(y).tickValues(mareyTicks).tickFormat(formatTime).tickSize(-width));
 
-    const axisStops = isNetworkMode() ? [] : route.directions["1"].stops.filter((_, i) => i % 4 === 0 || i === route.directions["1"].stops.length - 1);
-    g.append("g")
-      .attr("class", "axis")
-      .attr("transform", `translate(0,${height})`)
-      .call(isNetworkMode()
-        ? d3.axisBottom(x).tickValues([0, 0.25, 0.5, 0.75, 1]).tickFormat((d) => `${Math.round(d * 100)}%`)
-        : d3.axisBottom(x).tickValues(axisStops.map((d) => d.index)).tickFormat((i) => {
-        const stop = route.directions["1"].stops.find((s) => s.index === i);
-        return stop ? stop.name.split("/")[0].replace(" Station", "") : "";
+    const panelGap = isNetworkMode() ? 9 : 18;
+    const panels = isNetworkMode()
+      ? routes.map((panelRoute, index) => ({
+        route: panelRoute,
+        dir: null,
+        label: panelRoute.id,
+        x0: index * ((width - panelGap * (routes.length - 1)) / routes.length + panelGap),
+        width: (width - panelGap * (routes.length - 1)) / routes.length,
       }))
-      .selectAll("text")
-      .attr("transform", "rotate(-34)")
+      : ["1", "2"].map((dir, index) => ({
+        route,
+        dir,
+        label: `Direction ${dir}`,
+        x0: index * ((width - panelGap) / 2 + panelGap),
+        width: (width - panelGap) / 2,
+      }));
+
+    const panelLayer = g.append("g").attr("class", "marey-panels");
+
+    panels.forEach((panel) => {
+      const panelG = panelLayer.append("g").attr("transform", `translate(${panel.x0},0)`);
+      const panelWidth = panel.width;
+      const directions = panel.dir ? [panel.dir] : ["1", "2"];
+
+      panelG.append("line")
+        .attr("class", "marey-panel-rule")
+        .attr("x1", 0)
+        .attr("x2", 0)
+        .attr("y1", 0)
+        .attr("y2", height);
+
+      panelG.append("line")
+        .attr("class", "marey-panel-rule")
+        .attr("x1", panelWidth)
+        .attr("x2", panelWidth)
+        .attr("y1", 0)
+        .attr("y2", height);
+
+      panelG.append("text")
+        .attr("class", "marey-panel-label")
+        .attr("x", panelWidth / 2)
+        .attr("y", -8)
+        .attr("text-anchor", "middle")
+        .attr("fill", panel.route.color)
+        .text(panel.label);
+
+      if (panel.dir) {
+        const direction = panel.route.directions[panel.dir];
+        const stops = direction.stops;
+        const x = d3.scaleLinear().domain([0, Math.max(1, stops.length - 1)]).range([0, panelWidth]);
+        const axisStops = stops.filter((_, i) => i === 0 || i === stops.length - 1 || i % Math.ceil(stops.length / 4) === 0);
+
+        panelG.selectAll(".marey-station-line")
+          .data(axisStops)
+          .join("line")
+          .attr("class", "marey-station-line")
+          .attr("x1", (d) => x(d.index))
+          .attr("x2", (d) => x(d.index))
+          .attr("y1", 0)
+          .attr("y2", height);
+
+        panelG.selectAll(".marey-stop-label")
+          .data(axisStops)
+          .join("text")
+          .attr("class", "marey-stop-label")
+          .attr("x", (d) => x(d.index))
+          .attr("y", height + 15)
+          .attr("text-anchor", "end")
+          .attr("transform", (d) => `rotate(-35 ${x(d.index)} ${height + 15})`)
+          .text((d) => d.name.split("/")[0].replace(" Station", "").slice(0, 16));
+
+        panelG.selectAll(".marey-trip")
+          .data(direction.trips
+            .map((trip) => ({ ...trip, points: clipTripPoints(trip.points), dir: panel.dir, route: panel.route.id }))
+            .filter((trip) => trip.points.length > 1))
+          .join("path")
+          .attr("class", "marey-trip active-route")
+          .attr("stroke", panel.route.color)
+          .attr("stroke-dasharray", panel.dir === "2" ? "3 3" : null)
+          .attr("d", (trip) => d3.line()
+            .x((d) => x(d[0]))
+            .y((d) => y(d[1]))
+            .curve(d3.curveLinear)(trip.points));
+      } else {
+        const x = d3.scaleLinear().domain([0, 1]).range([0, panelWidth]);
+        [0.25, 0.5, 0.75].forEach((tick) => {
+          panelG.append("line")
+            .attr("class", "marey-station-line")
+            .attr("x1", x(tick))
+            .attr("x2", x(tick))
+            .attr("y1", 0)
+            .attr("y2", height);
+        });
+
+        const trips = directions.flatMap((dir) => {
+          const direction = panel.route.directions[dir];
+          const denom = Math.max(1, direction.stops.length - 1);
+          return direction.trips.map((trip) => ({
+            ...trip,
+            route: panel.route.id,
+            dir,
+            points: clipTripPoints(trip.points.map((point) => [point[0] / denom, point[1]])),
+          })).filter((trip) => trip.points.length > 1);
+        });
+
+        panelG.selectAll(".marey-trip")
+          .data(trips)
+          .join("path")
+          .attr("class", "marey-trip")
+          .attr("stroke", panel.route.color)
+          .attr("stroke-dasharray", (d) => d.dir === "2" ? "3 3" : null)
+          .attr("d", (trip) => d3.line()
+            .x((d) => x(d[0]))
+            .y((d) => y(d[1]))
+            .curve(d3.curveLinear)(trip.points));
+      }
+    });
+
+    g.append("text")
+      .attr("class", "axis-note")
+      .attr("x", width)
+      .attr("y", height + 58)
       .attr("text-anchor", "end")
-      .attr("dx", "-0.45em")
-      .attr("dy", "0.25em");
-
-    const line = d3.line()
-      .x((d) => x(d[0]))
-      .y((d) => y(d[1]))
-      .curve(d3.curveLinear);
-
-    const trips = isNetworkMode()
-      ? routes.flatMap((networkRoute) => ["1", "2"].flatMap((dir) => {
-        const direction = networkRoute.directions[dir];
-        const denom = Math.max(1, direction.stops.length - 1);
-        return direction.trips.filter((_, index) => index % 4 === 0).map((trip) => ({
-          ...trip,
-          route: networkRoute.id,
-          dir,
-          points: trip.points.map((point) => [point[0] / denom, point[1]]),
-        }));
-      }))
-      : ["1", "2"].flatMap((dir) =>
-        route.directions[dir].trips.map((trip) => ({ ...trip, dir, route: route.id }))
-      );
-
-    g.append("g")
-      .selectAll(".marey-trip")
-      .data(trips)
-      .join("path")
-      .attr("class", "marey-trip active-route")
-      .attr("stroke", (d) => isNetworkMode() ? colorByRoute.get(d.route) : (d.dir === "1" ? route.color : "#5b5650"))
-      .attr("stroke-opacity", isNetworkMode() ? 0.2 : null)
-      .attr("stroke-width", isNetworkMode() ? 0.85 : null)
-      .attr("stroke-dasharray", (d) => d.dir === "2" ? "3 3" : null)
-      .attr("d", (d) => line(d.points));
-
-    if (isNetworkMode()) {
-      g.append("text")
-        .attr("class", "axis-note")
-        .attr("x", width)
-        .attr("y", height + 48)
-        .attr("text-anchor", "end")
-        .text("all routes shown by progress along each route");
-    }
+      .text(isNetworkMode() ? "each route keeps its own horizontal service lane" : "station position along each direction");
 
     g.append("line")
       .attr("class", "time-cursor marey-cursor")
@@ -748,29 +1063,121 @@
   drawMarey();
 
   /* Passenger heatmap */
-  const heatBox = { width: 850, rowHeight: 13, margin: { top: 24, right: 18, bottom: 36, left: 164 } };
+  const heatBox = { width: 760, rowHeight: 12, margin: { top: 24, right: 18, bottom: 44, left: 164 } };
+  const passengerMapBox = { width: 230, height: 610, margin: { top: 24, right: 18, bottom: 34, left: 20 } };
+  const stopProfileBox = { width: 260, height: 112, margin: { top: 12, right: 8, bottom: 20, left: 54 } };
   let heatScales = null;
+  let passengerMapScales = null;
+
+  function shortStopName(name, limit = 26) {
+    return name.length > limit ? `${name.slice(0, limit - 2)}...` : name;
+  }
+
+  function setPassengerStop(stop, lock = false) {
+    if (!stop) return;
+    const nextStop = { route: stop.route, dir: stop.dir, index: stop.index, name: stop.name };
+    if (lock) {
+      const alreadySelected = passengerStopKey(state.passengerSelectedStop) === passengerStopKey(nextStop);
+      state.passengerSelectedStop = alreadySelected ? null : nextStop;
+    } else {
+      state.passengerHoverStop = nextStop;
+    }
+    updatePassenger();
+  }
+
+  function clearPassengerHover() {
+    state.passengerHoverStop = null;
+    updatePassenger();
+    hideTooltip();
+  }
+
+  function drawPassengerRouteMap() {
+    const route = routeById.get(passengerRouteId());
+    const dirId = passengerDirectionId();
+    const direction = route.directions[dirId];
+    const coords = direction.metric.coords.length ? direction.metric.coords : direction.paths.flat();
+    const lonExtent = d3.extent(coords, (d) => d[0]);
+    const latExtent = d3.extent(coords, (d) => d[1]);
+    const lonPad = (lonExtent[1] - lonExtent[0]) * 0.12 || 0.01;
+    const latPad = (latExtent[1] - latExtent[0]) * 0.12 || 0.01;
+    const x = d3.scaleLinear()
+      .domain([lonExtent[0] - lonPad, lonExtent[1] + lonPad])
+      .range([passengerMapBox.margin.left, passengerMapBox.width - passengerMapBox.margin.right]);
+    const y = d3.scaleLinear()
+      .domain([latExtent[0] - latPad, latExtent[1] + latPad])
+      .range([passengerMapBox.height - passengerMapBox.margin.bottom, passengerMapBox.margin.top]);
+    passengerMapScales = { x, y };
+
+    const line = d3.line()
+      .x((d) => x(d[0]))
+      .y((d) => y(d[1]))
+      .curve(d3.curveBasis);
+
+    const stops = passengerStopStats(route.id, dirId);
+    const svg = d3.select("#passenger-route-map").html("").append("svg")
+      .attr("viewBox", `0 0 ${passengerMapBox.width} ${passengerMapBox.height}`);
+
+    svg.append("path")
+      .attr("class", "passenger-map-path")
+      .attr("stroke", route.color)
+      .attr("d", line(coords));
+
+    svg.selectAll(".passenger-route-stop")
+      .data(stops, (d) => passengerStopKey(d))
+      .join("circle")
+      .attr("class", "passenger-route-stop")
+      .attr("cx", (d) => x(d.lon))
+      .attr("cy", (d) => y(d.lat))
+      .attr("stroke", route.color)
+      .on("mousemove", (event, d) => {
+        setPassengerStop(d);
+        const demand = getStopDemand(route.id, dirId, d.index, state.passengerTime);
+        showTooltip(
+          `<strong>${escapeHtml(d.name)}</strong><br>${formatTime(state.passengerTime)} · ${passengerMetricDef().detail} ${passengerCellValue(demand).toFixed(1)}<br>` +
+          `rank #${d.rank} · board ${demand ? demand.b.toFixed(1) : "0"} · alight ${demand ? demand.a.toFixed(1) : "0"}`,
+          event
+        );
+      })
+      .on("mouseleave", clearPassengerHover)
+      .on("click", (_, d) => setPassengerStop(d, true));
+
+    const endpoints = [stops[0], stops[stops.length - 1]].filter(Boolean);
+    svg.selectAll(".passenger-map-endpoint")
+      .data(endpoints)
+      .join("text")
+      .attr("class", "passenger-map-endpoint")
+      .attr("x", (d) => x(d.lon))
+      .attr("y", (d, i) => y(d.lat) + (i ? 15 : -8))
+      .attr("text-anchor", "middle")
+      .text((d) => shortStopName(d.name, 18));
+  }
 
   function drawHeatmap() {
     const route = routeById.get(passengerRouteId());
     const dirId = passengerDirectionId();
-    const direction = route.directions[dirId];
-    const rows = direction.stops;
+    const metric = passengerMetricDef();
+    const rows = passengerRows();
+    const rowByIndex = new Map(rows.map((row) => [row.index, row]));
     const height = heatBox.margin.top + heatBox.margin.bottom + rows.length * heatBox.rowHeight;
     const width = heatBox.width - heatBox.margin.left - heatBox.margin.right;
     const x = d3.scaleBand().domain(timebands).range([0, width]).paddingInner(0.02);
     const y = d3.scaleBand().domain(rows.map((d) => d.index)).range([0, rows.length * heatBox.rowHeight]);
-    const color = d3.scaleSequentialSqrt(d3.interpolateRgb("#fbfaf7", route.color)).domain([0, maxLoad * 0.9]);
-    heatScales = { x, y, color };
+    const color = d3.scaleSequentialSqrt(d3.interpolateRgb("#fbfaf7", route.color)).domain([0, metric.max * 0.92]);
+    heatScales = { x, y, color, rows, rowByIndex, height: rows.length * heatBox.rowHeight };
 
     const cells = [];
     timebands.forEach((minute) => {
       const demand = getDemand(route.id, dirId, minute);
       if (!demand) return;
       demand.stops.forEach((stop) => {
-        cells.push({ minute, ...stop });
+        if (rowByIndex.has(stop.i)) cells.push({ route: route.id, dir: dirId, minute, ...stop });
       });
     });
+    const localMax = d3.max(cells, (d) => passengerCellValue(d)) || metric.max || 1;
+    color.domain([0, localMax * 0.98]);
+    heatScales.metricMax = localMax;
+
+    drawPassengerRouteMap();
 
     const svg = d3.select("#stop-heatmap").html("").append("svg")
       .attr("viewBox", `0 0 ${heatBox.width} ${height}`);
@@ -780,72 +1187,211 @@
       .attr("class", "axis")
       .call(d3.axisTop(x).tickValues(timebands.filter((d) => d % 120 === 0)).tickFormat(formatTime).tickSize(-rows.length * heatBox.rowHeight));
 
+    g.selectAll(".passenger-row-band")
+      .data(rows, (d) => passengerStopKey(d))
+      .join("rect")
+      .attr("class", "passenger-row-band")
+      .attr("x", 0)
+      .attr("y", (d) => y(d.index))
+      .attr("width", width)
+      .attr("height", y.bandwidth());
+
     g.selectAll(".stop-label")
-      .data(rows)
+      .data(rows, (d) => passengerStopKey(d))
       .join("text")
       .attr("class", "stop-label")
       .attr("x", -8)
       .attr("y", (d) => y(d.index) + y.bandwidth() - 2)
       .attr("text-anchor", "end")
-      .text((d) => d.name.length > 26 ? `${d.name.slice(0, 24)}...` : d.name);
+      .text((d) => state.passengerOrder === "rank" ? `#${d.rank} ${shortStopName(d.name, 20)}` : shortStopName(d.name))
+      .on("mousemove", (event, d) => {
+        setPassengerStop(d);
+        showTooltip(`<strong>${escapeHtml(d.name)}</strong><br>Rank #${d.rank} by ${passengerMetricDef().noun}`, event);
+      })
+      .on("mouseleave", clearPassengerHover)
+      .on("click", (_, d) => setPassengerStop(d, true));
 
     g.selectAll(".heat-cell")
-      .data(cells)
+      .data(cells, (d) => `${d.i}-${d.minute}`)
       .join("rect")
       .attr("class", "heat-cell")
       .attr("x", (d) => x(d.minute))
       .attr("y", (d) => y(d.i))
       .attr("width", x.bandwidth())
       .attr("height", y.bandwidth())
-      .attr("fill", (d) => color(d.l))
+      .attr("fill", (d) => color(passengerCellValue(d)))
       .on("mousemove", (event, d) => {
+        const stop = rowByIndex.get(d.i);
+        state.passengerHoverStop = stop;
         setPassengerTime(d.minute);
-        const stop = direction.stops[d.i];
-        state.passengerHoverStop = { ...stop, route: route.id, dir: dirId };
         showTooltip(
-          `<strong>${stop ? stop.name : "Stop"}</strong><br>${formatTime(d.minute)} · load ${d.l.toFixed(1)}<br>` +
-          `board ${d.b.toFixed(1)} · alight ${d.a.toFixed(1)} · V/C ${d.vc.toFixed(2)}`,
+          `<strong>${escapeHtml(stop ? stop.name : "Stop")}</strong><br>${formatTime(d.minute)} · ${metric.detail} ${passengerCellValue(d).toFixed(1)}<br>` +
+          `board ${d.b.toFixed(1)} · alight ${d.a.toFixed(1)} · load ${d.l.toFixed(1)} · V/C ${d.vc.toFixed(2)}`,
           event
         );
       })
-      .on("mouseleave", hideTooltip);
+      .on("mouseleave", clearPassengerHover)
+      .on("click", (_, d) => {
+        const stop = rowByIndex.get(d.i);
+        if (stop) setPassengerStop(stop, true);
+      });
 
     g.append("line")
       .attr("class", "time-cursor heat-cursor")
       .attr("y1", 0)
       .attr("y2", rows.length * heatBox.rowHeight);
 
+    g.append("text")
+      .attr("class", "axis-note passenger-axis-note")
+      .attr("x", width)
+      .attr("y", rows.length * heatBox.rowHeight + 34)
+      .attr("text-anchor", "end")
+      .text(`${metric.detail}; rows ${state.passengerOrder === "rank" ? "ranked by selected metric" : "follow route order"}`);
+
     updateHeatmap();
+  }
+
+  function updatePassengerRouteMap() {
+    if (!passengerMapScales) return;
+    const route = routeById.get(passengerRouteId());
+    const dirId = passengerDirectionId();
+    const metric = passengerMetricDef();
+    const rows = passengerRows();
+    const focus = resolvedPassengerFocus(rows);
+    const radius = d3.scaleSqrt().domain([0, heatScales?.metricMax || metric.max || 1]).range([2.6, 13]);
+    d3.selectAll(".passenger-route-stop")
+      .classed("focused", (d) => focus && d.index === focus.index)
+      .classed("selected", (d) => passengerStopKey(state.passengerSelectedStop) === passengerStopKey(d))
+      .attr("r", (d) => {
+        const demand = getStopDemand(route.id, dirId, d.index, state.passengerTime);
+        return radius(passengerCellValue(demand));
+      })
+      .attr("fill-opacity", (d) => focus && d.index === focus.index ? 0.92 : 0.46);
+    d3.select("#passenger-map-route").text(`Route ${route.id} · Direction ${dirId}`);
+    d3.select("#passenger-map-time").text(formatTime(state.passengerTime));
+  }
+
+  function drawPassengerStopProfile(stop) {
+    const route = routeById.get(passengerRouteId());
+    const dirId = passengerDirectionId();
+    if (!stop) {
+      d3.select("#selected-stop-profile").html("");
+      return;
+    }
+    const rows = [
+      { id: "board", label: "Board", field: "b", max: maxBoard },
+      { id: "alight", label: "Alight", field: "a", max: maxAlight },
+      { id: "load", label: "Load", field: "l", max: maxLoad },
+    ];
+    const cells = [];
+    timebands.forEach((minute) => {
+      const demand = getStopDemand(route.id, dirId, stop.index, minute);
+      rows.forEach((row) => {
+        cells.push({ row: row.id, minute, value: demand ? demand[row.field] : 0 });
+      });
+    });
+    const width = stopProfileBox.width - stopProfileBox.margin.left - stopProfileBox.margin.right;
+    const height = stopProfileBox.height - stopProfileBox.margin.top - stopProfileBox.margin.bottom;
+    const x = d3.scaleBand().domain(timebands).range([0, width]).paddingInner(0.05);
+    const y = d3.scaleBand().domain(rows.map((row) => row.id)).range([0, height]).padding(0.16);
+    const rowById = new Map(rows.map((row) => [row.id, row]));
+    const profileColor = (cell) => {
+      const row = rowById.get(cell.row);
+      const t = Math.min(1, Math.sqrt(cell.value / Math.max(1, (row?.max || 1) * 0.92)));
+      return d3.interpolateRgb("#fbfaf7", route.color)(t);
+    };
+    const svg = d3.select("#selected-stop-profile").html("").append("svg")
+      .attr("viewBox", `0 0 ${stopProfileBox.width} ${stopProfileBox.height}`);
+    const g = svg.append("g").attr("transform", `translate(${stopProfileBox.margin.left},${stopProfileBox.margin.top})`);
+
+    g.selectAll(".profile-cell")
+      .data(cells)
+      .join("rect")
+      .attr("class", "profile-cell")
+      .attr("x", (d) => x(d.minute))
+      .attr("y", (d) => y(d.row))
+      .attr("width", x.bandwidth())
+      .attr("height", y.bandwidth())
+      .attr("fill", (d) => profileColor(d));
+
+    g.selectAll(".profile-row-label")
+      .data(rows)
+      .join("text")
+      .attr("class", "profile-row-label")
+      .attr("x", -8)
+      .attr("y", (d) => y(d.id) + y.bandwidth() - 1)
+      .attr("text-anchor", "end")
+      .text((d) => d.label);
+
+    g.append("line")
+      .attr("class", "time-cursor profile-cursor")
+      .attr("x1", x(nearestTime(state.passengerTime)) + x.bandwidth() / 2)
+      .attr("x2", x(nearestTime(state.passengerTime)) + x.bandwidth() / 2)
+      .attr("y1", 0)
+      .attr("y2", height);
+
+    g.append("g")
+      .attr("class", "axis profile-axis")
+      .attr("transform", `translate(0,${height})`)
+      .call(d3.axisBottom(x).tickValues([6 * 60, 12 * 60, 18 * 60]).tickFormat(formatTime).tickSize(0));
   }
 
   function updateHeatmap() {
     if (!heatScales) return;
-    d3.select(".heat-cursor")
-      .attr("x1", heatScales.x(nearestTime(state.passengerTime)) + heatScales.x.bandwidth() / 2)
-      .attr("x2", heatScales.x(nearestTime(state.passengerTime)) + heatScales.x.bandwidth() / 2);
-
     const route = routeById.get(passengerRouteId());
     const dirId = passengerDirectionId();
+    const metric = passengerMetricDef();
+    const rows = heatScales.rows;
+    const focus = resolvedPassengerFocus(rows);
+    const focusIndex = focus ? focus.index : null;
+    const cursorX = heatScales.x(nearestTime(state.passengerTime)) + heatScales.x.bandwidth() / 2;
+
+    d3.select(".heat-cursor")
+      .attr("x1", cursorX)
+      .attr("x2", cursorX);
+
+    d3.selectAll(".heat-cell")
+      .classed("focused", (d) => d.i === focusIndex)
+      .classed("selected", (d) => state.passengerSelectedStop && d.i === state.passengerSelectedStop.index);
+    d3.selectAll(".stop-label")
+      .classed("focused", (d) => d.index === focusIndex)
+      .classed("selected", (d) => passengerStopKey(state.passengerSelectedStop) === passengerStopKey(d));
+    d3.selectAll(".passenger-row-band")
+      .classed("focused", (d) => d.index === focusIndex);
+
     const summary = summarizeDirectionAt(route.id, dirId, state.passengerTime);
     d3.select("#panel-time").text(formatTime(state.passengerTime));
     d3.select("#route-summary").html(`
       <div class="stat-row"><span>Passenger route</span><strong>${route.id}</strong></div>
-      <div class="stat-row"><span>Heatmap direction</span><strong>Direction ${dirId}</strong></div>
+      <div class="stat-row"><span>Direction</span><strong>${dirId}</strong></div>
       <p class="direction-label panel-direction">${escapeHtml(directionLabel(route, dirId))}</p>
+      <div class="stat-row"><span>Metric</span><strong>${metric.detail}</strong></div>
+      <div class="stat-row"><span>Order</span><strong>${state.passengerOrder === "rank" ? "Busiest stops" : "Route order"}</strong></div>
       <div class="stat-row"><span>Current boardings</span><strong>${summary.board.toFixed(1)}</strong></div>
       <div class="stat-row"><span>Current alightings</span><strong>${summary.alight.toFixed(1)}</strong></div>
       <div class="stat-row"><span>Peak load now</span><strong>${summary.load.toFixed(1)}</strong></div>
-      <div class="stat-row"><span>Peak V/C now</span><strong>${summary.vc.toFixed(2)}</strong></div>
     `);
-    if (state.passengerHoverStop && state.passengerHoverStop.route === route.id && state.passengerHoverStop.dir === dirId) {
-      const demand = getStopDemand(route.id, state.passengerHoverStop.dir, state.passengerHoverStop.index, state.passengerTime);
+
+    if (focus) {
+      const demand = getStopDemand(route.id, dirId, focus.index, state.passengerTime);
       d3.select("#selected-stop").html(`
-        <p><strong>${escapeHtml(state.passengerHoverStop.name)}</strong></p>
-        <p>Board ${demand ? demand.b.toFixed(1) : "0"} · alight ${demand ? demand.a.toFixed(1) : "0"} · load ${demand ? demand.l.toFixed(1) : "0"}</p>
+        <p><strong>#${focus.rank} ${escapeHtml(focus.name)}</strong></p>
+        <p class="direction-label">Stop ${focus.index + 1} of ${route.directions[dirId].stops.length}. Click a stop to hold it; click again to release.</p>
+        <div class="stat-row"><span>Current ${metric.noun}</span><strong>${passengerCellValue(demand).toFixed(1)}</strong></div>
+        <div class="stat-row"><span>Board now</span><strong>${demand ? demand.b.toFixed(1) : "0"}</strong></div>
+        <div class="stat-row"><span>Alight now</span><strong>${demand ? demand.a.toFixed(1) : "0"}</strong></div>
+        <div class="stat-row"><span>Load now</span><strong>${demand ? demand.l.toFixed(1) : "0"}</strong></div>
+        <div class="stat-row"><span>Daily boardings</span><strong>${focus.totalBoard.toFixed(1)}</strong></div>
+        <div class="stat-row"><span>Daily alightings</span><strong>${focus.totalAlight.toFixed(1)}</strong></div>
+        ${metric.id === "load" ? "" : `<div class="stat-row"><span>Peak ${metric.noun}</span><strong>${focus.metricPeak.toFixed(1)} at ${formatTime(focus.metricPeakMinute)}</strong></div>`}
+        <div class="stat-row"><span>Peak load</span><strong>${focus.peakLoad.toFixed(1)} at ${formatTime(focus.peakMinute)}</strong></div>
+        <div id="selected-stop-profile"></div>
+        <p class="panel-note">Profile rows use the same typical weekday BUSTO quarter-hour demand.</p>
       `);
-    } else {
-      d3.select("#selected-stop").html(`<p>${escapeHtml(route.note)}</p><p class="panel-note">Passenger route and direction are independent from the crowding and ride panels.</p>`);
+      drawPassengerStopProfile(focus);
     }
+
+    updatePassengerRouteMap();
   }
 
   drawHeatmap();
@@ -1498,12 +2044,19 @@
     updateCommute();
   }
 
-  setInterval(() => {
-    if (!state.playing) return;
-    const next = state.busTime + 15;
-    state.busTime = next > timeRange[1] ? timeRange[0] : next;
-    updateBuses();
-  }, 620);
+  const busMinutesPerMs = 15 / 620;
+  let previousBusFrame = null;
+  function animateBusClock(timestamp) {
+    if (previousBusFrame === null) previousBusFrame = timestamp;
+    const elapsed = timestamp - previousBusFrame;
+    previousBusFrame = timestamp;
+    if (state.playing && elapsed > 0) {
+      state.busTime = wrapBusTime(state.busTime + elapsed * busMinutesPerMs);
+      updateBuses();
+    }
+    requestAnimationFrame(animateBusClock);
+  }
+  requestAnimationFrame(animateBusClock);
 
   updateAll();
 }());

@@ -9,6 +9,13 @@
   <link rel="stylesheet" href="styles/main.css">
 </head>
 <body>
+  <nav class="section-nav" aria-label="Visualization sections">
+    <a class="section-nav-dot active" href="#buses" data-label="The Buses" aria-label="The Buses"></a>
+    <a class="section-nav-dot" href="#passengers" data-label="The Passengers" aria-label="The Passengers"></a>
+    <a class="section-nav-dot" href="#crowding" data-label="Crowding" aria-label="Crowding Through the Day"></a>
+    <a class="section-nav-dot" href="#ride" data-label="Your Bus Ride" aria-label="Your Bus Ride"></a>
+  </nav>
+
   <header class="site-header">
     <div class="container header-grid">
       <div class="title-block">
@@ -57,12 +64,13 @@
       </div>
     </section>
 
-    <section class="section buses-section">
+    <section class="section buses-section" id="buses">
       <div class="container">
         <h3>The Buses</h3>
         <p class="section-copy">
           Six selected routes thread through central London. Drag the Marey diagram to move the day:
-          dots on the map show scheduled buses moving along real road geometry while the route strokes breathe with load.
+          direction-separated dots show scheduled buses moving along real
+          road geometry.
         </p>
       </div>
       <div class="viz-shell map-shell">
@@ -83,21 +91,40 @@
       </div>
     </section>
 
-    <section class="section passengers-section">
+    <section class="section passengers-section" id="passengers">
       <div class="container">
         <h3>The Passengers</h3>
         <p class="section-copy">
-          Choose a route and direction. Rows follow the selected direction's stop order, and the heatmap shows how
-          many people are on board after each stop during each quarter-hour.
+          Choose a route and direction. The route diagram, stop ranking, and heatmap are linked; hover or click a stop
+          to inspect its typical weekday boardings, alightings, and load across each quarter-hour.
         </p>
         <div class="section-toolbar">
-          <span class="toolbar-label">Passenger route</span>
-          <div class="route-tabs passenger-tabs" id="passenger-route-tabs"></div>
-          <span class="toolbar-label">Direction</span>
-          <div class="route-tabs direction-tabs" id="passenger-direction-tabs"></div>
+          <div class="toolbar-group">
+            <span class="toolbar-label">Passenger route</span>
+            <div class="route-tabs passenger-tabs" id="passenger-route-tabs"></div>
+          </div>
+          <div class="toolbar-group">
+            <span class="toolbar-label">Direction</span>
+            <div class="route-tabs direction-tabs" id="passenger-direction-tabs"></div>
+          </div>
+          <div class="toolbar-group">
+            <span class="toolbar-label">Order</span>
+            <div class="route-tabs compact-tabs" id="passenger-order-tabs"></div>
+          </div>
+          <div class="toolbar-group">
+            <span class="toolbar-label">Metric</span>
+            <div class="route-tabs compact-tabs" id="passenger-metric-tabs"></div>
+          </div>
         </div>
       </div>
       <div class="viz-shell passenger-shell">
+        <div class="passenger-map-card">
+          <div id="passenger-route-map"></div>
+          <div class="passenger-map-note">
+            <span id="passenger-map-route">Route 24</span>
+            <span id="passenger-map-time">08:00</span>
+          </div>
+        </div>
         <div id="stop-heatmap"></div>
         <aside class="side-panel">
           <h4>At <span id="panel-time">08:00</span></h4>
@@ -107,7 +134,7 @@
       </div>
     </section>
 
-    <section class="section crowding-section">
+    <section class="section crowding-section" id="crowding">
       <div class="container">
         <h3>Crowding Through the Day</h3>
         <p class="section-copy">
@@ -128,7 +155,7 @@
       </div>
     </section>
 
-    <section class="section commute-section">
+    <section class="section commute-section" id="ride">
       <div class="container">
         <h3>Your Bus Ride</h3>
         <p class="section-copy">
