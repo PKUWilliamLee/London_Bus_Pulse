@@ -1,0 +1,422 @@
+[
+  {
+    "province": "安徽省",
+    "area": "安庆市",
+    "seed_url": "https://tzcjj.anqing.gov.cn/public/4018533/2007330959.html",
+    "source": "安庆市政府部门官网",
+    "prior_status": "A1 官方全文/附件",
+    "note": "正式纲要页面，可按网页附件优先保存。",
+    "direct_url": "https://tzcjj.anqing.gov.cn/group1/M00/02/38/FBUWEWpCJsWAXJlGADiEn0V8Zk0814.pdf",
+    "full_page_seed": ""
+  },
+  {
+    "province": "安徽省",
+    "area": "蚌埠市",
+    "seed_url": "https://www.spb.gov.cn/gjyzj/c100015/c100017/202602/93ee4e36aa93420a87d57008b4bf9da1.shtml",
+    "source": "国家邮政局/安徽省邮政管理局",
+    "prior_status": "B 已确认通过/发布，全文待定位",
+    "note": "官方部门已引用蚌埠十五五纲要；未检索到蚌埠市政府正式全文下载页，不能用年度计划或建议稿替代。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "安徽省",
+    "area": "亳州市",
+    "seed_url": "",
+    "source": "",
+    "prior_status": "C 未定位正式全文",
+    "note": "本轮未检索到亳州市政府正式十五五规划纲要全文；未用建议稿、旧规划或新闻稿替代。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "安徽省",
+    "area": "池州市",
+    "seed_url": "https://www.chizhou.gov.cn/News/show/767861.html",
+    "source": "池州市人民政府",
+    "prior_status": "B 已确认通过/发布，全文待定位",
+    "note": "可确认纲要已获审议批准；正式全文/附件入口未定位。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "安徽省",
+    "area": "滁州市",
+    "seed_url": "https://ahczrd.gov.cn/news/2/1310.html",
+    "source": "滁州人大",
+    "prior_status": "B 已确认通过/发布，全文待定位",
+    "note": "市人大会议已表决通过十五五规划纲要；正式政府全文页未定位。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "安徽省",
+    "area": "阜阳市",
+    "seed_url": "https://ah.spb.gov.cn/ahsyzglj/c100057/c100060/202607/ff72faf0c89442b884496cb31292841c.shtml",
+    "source": "安徽省邮政管理局",
+    "prior_status": "B 已确认通过/发布，全文待定位",
+    "note": "官方部门确认阜阳市政府已印发正式纲要；继续以阜阳市政府原文为优先。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "安徽省",
+    "area": "合肥市",
+    "seed_url": "",
+    "source": "",
+    "prior_status": "C 未定位正式全文",
+    "note": "检索到的主要为规划建议、草案审议及会议报道；未锁定合肥市政府正式纲要全文/附件。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "安徽省",
+    "area": "淮南市",
+    "seed_url": "https://www.huainan.gov.cn/ztzl/szfgb/szfbgswj/index.html",
+    "source": "淮南市人民政府",
+    "prior_status": "A2 官方正式入口/目录",
+    "note": "市政府文件目录已列《淮南市人民政府关于印发淮南市国民经济和社会发展第十五个五年规划纲要的通知》，从该条目进入保存。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "安徽省",
+    "area": "黄山市",
+    "seed_url": "https://www.huangshan.gov.cn/zxzx/zwyw/8418858.html",
+    "source": "黄山市人民政府",
+    "prior_status": "B 已确认通过/发布，全文待定位",
+    "note": "可确认纲要获批；该页不是正式全文。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "安徽省",
+    "area": "六安市",
+    "seed_url": "https://www.luan.gov.cn/public/6608171/10765149.html",
+    "source": "六安市人民政府",
+    "prior_status": "B 已确认通过/发布，全文待定位",
+    "note": "政府重大行政决策信息已列正式印发事项；正式全文链接仍需从政府站内补定位。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "安徽省",
+    "area": "马鞍山市",
+    "seed_url": "https://ah.spb.gov.cn/ahsyzglj/c100057/c100060/202606/38f79faf9c5646b08e475e061b59878f.shtml",
+    "source": "安徽省邮政管理局",
+    "prior_status": "B 已确认通过/发布，全文待定位",
+    "note": "官方部门确认市政府已印发正式纲要；市政府原文入口未定位。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "安徽省",
+    "area": "宿州市",
+    "seed_url": "https://www.ahsz.gov.cn/public/2655573/196413551.html",
+    "source": "宿州市人民政府",
+    "prior_status": "A1 官方全文/附件",
+    "note": "正式政府公开页面。",
+    "direct_url": "",
+    "full_page_seed": "https://www.ahsz.gov.cn/public/2655573/196413551.html"
+  },
+  {
+    "province": "安徽省",
+    "area": "铜陵市",
+    "seed_url": "https://www.tlxfzx.gov.cn/News/Content/011f0162-e0b3-4983-8aa3-4ccb492cc6c6",
+    "source": "铜陵官方信息平台",
+    "prior_status": "B 已确认审议/通过，全文待定位",
+    "note": "可确认十五五规划进入正式审议流程；正式政府全文入口未定位。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "安徽省",
+    "area": "宣城市",
+    "seed_url": "https://www.xuancheng.gov.cn/News/show/1697283.html",
+    "source": "宣城市人民政府",
+    "prior_status": "B 已确认通过/发布，全文待定位",
+    "note": "可确认纲要获批准。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "福建省",
+    "area": "福州市",
+    "seed_url": "https://www.fuzhou.gov.cn/zfxxgkzl/szfbmjxsqxxgk/szfbmxxgk/fzsrmzf/zfxxgkml/gmjjhshfzghzxghqyghjxgzc/202605/t20260519_5323750.htm",
+    "source": "福州市人民政府",
+    "prior_status": "A1 官方全文/附件",
+    "note": "正式全文页面。",
+    "direct_url": "https://www.fuzhou.gov.cn/zfxxgkzl/szfbmjxsqxxgk/szfbmxxgk/fzsrmzf/zfxxgkml/gmjjhshfzghzxghqyghjxgzc/202605/P020260519391401872300.pdf",
+    "full_page_seed": ""
+  },
+  {
+    "province": "福建省",
+    "area": "龙岩市",
+    "seed_url": "https://www.spb.gov.cn/gjyzj/c100015/c100017/202607/968589e8722f49d4be6fdeb7373dad16.shtml",
+    "source": "国家邮政局/福建省邮政管理局",
+    "prior_status": "B 已确认通过/发布，全文待定位",
+    "note": "官方部门确认龙岩十五五纲要已印发；市政府正式全文入口未定位。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "福建省",
+    "area": "南平市",
+    "seed_url": "https://mbrb.greatwuyi.com/attachment/202601/23/a6f16251-8ce3-4419-b20b-5532e97e1750.pdf",
+    "source": "闽北日报/人大决议",
+    "prior_status": "B 已确认通过/发布，全文待定位",
+    "note": "人大决议确认纲要获批准；正式市政府全文入口未定位。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "福建省",
+    "area": "宁德市",
+    "seed_url": "https://www.ndwww.cn/ndrd/zhbd/2026/0116/319788.shtml",
+    "source": "宁德人大/官方媒体",
+    "prior_status": "B 已确认通过/发布，全文待定位",
+    "note": "可确认规划获批；正式全文入口未定位。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "福建省",
+    "area": "莆田市",
+    "seed_url": "https://szb.ptxw.com/resfile/2026-01-17/A2/mzrb-20260117-A02.pdf",
+    "source": "湄洲日报/人大决议",
+    "prior_status": "B 已确认通过/发布，全文待定位",
+    "note": "人大决议可确认纲要获批准；正式市政府全文入口未定位。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "福建省",
+    "area": "厦门市",
+    "seed_url": "https://www.xmrd.gov.cn/xwzx/qwfb/202601/t20260125_390613.htm",
+    "source": "厦门人大",
+    "prior_status": "B 已确认通过/发布，全文待定位",
+    "note": "可确认规划获批。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "福建省",
+    "area": "漳州市",
+    "seed_url": "https://gxt.fujian.gov.cn/zwgk/ztjj/sswgh/sswgh/202605/t20260520_7150226.htm",
+    "source": "福建省工业和信息化厅",
+    "prior_status": "B 已确认通过/发布，全文待定位",
+    "note": "省级官方部门确认漳州市十五五纲要已印发实施；市政府原文入口未定位。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "甘肃省",
+    "area": "甘肃省",
+    "seed_url": "https://www.zhangye.gov.cn/zyszfxxgk/fdzdgknr_5657/zyghgy/gmjj/202606/t20260618_1555182.html",
+    "source": "张掖市人民政府转发省政府正式文件",
+    "prior_status": "A1 官方全文/附件",
+    "note": "完整转发甘肃省政府正式纲要。",
+    "direct_url": "https://gansu.gov.cn/gsszf/c100054/202604/174311821/files/0a95a6daefba4013b15d1dd2215f690f.pdf",
+    "full_page_seed": ""
+  },
+  {
+    "province": "甘肃省",
+    "area": "白银市",
+    "seed_url": "https://www.jingyuan.gov.cn/zfxxgk/bmhxzxxgk/xzxxgk/mtz/fdzdgknr/ghjh/art/2026/art_c422262d0de04c7f9a346d1a4d70809c.html",
+    "source": "靖远县人民政府（白银市下辖）",
+    "prior_status": "A2 官方转发全文",
+    "note": "官方政府站完整转发白银市十五五规划纲要。",
+    "direct_url": "https://www.jingyuan.gov.cn/api-gateway/jpaas-web-server/front/document/download?fileUrl=YW5UzzlvCwcM%2FNHHX%2FtT6F%2FnPdG3RIuCuoXOuOqGvcMPO0riKXFEW%2BInf30QcZ%2BeGymmRcZu3l0AYtFffePMqQnmTT3uA8z7COsbbb4xA7IavXSZahX6qu08drPr%2FtzpVXnvMzRWO0KaLjjlA6RqMpo6Z7cvXBieN3ZCx2l4PIE%3D&fileName=%E7%99%BD%E9%93%B6%E5%B8%82%E5%9B%BD%E6%B0%91%E7%BB%8F%E6%B5%8E%E5%92%8C%E7%A4%BE%E4%BC%9A%E5%8F%91%E5%B1%95%E7%AC%AC%E5%8D%81%E4%BA%94%E4%B8%AA%E4%BA%94%E5%B9%B4%E8%A7%84%E5%88%92%E7%BA%B2%E8%A6%81.pdf",
+    "full_page_seed": ""
+  },
+  {
+    "province": "甘肃省",
+    "area": "定西市",
+    "seed_url": "",
+    "source": "",
+    "prior_status": "C 未定位正式全文",
+    "note": "本轮未检索到定西市政府正式十五五规划纲要全文/附件。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "甘肃省",
+    "area": "嘉峪关市",
+    "seed_url": "https://www.jyg.gov.cn/zfxxgk/index.html",
+    "source": "嘉峪关市人民政府",
+    "prior_status": "A2 官方正式入口/目录",
+    "note": "政府信息公开目录可检索正式十五五规划纲要条目。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "甘肃省",
+    "area": "兰州市",
+    "seed_url": "https://www.lanzhou.gov.cn/art/2026/5/9/art_15333_1701467.html",
+    "source": "兰州市人民政府",
+    "prior_status": "A1 官方全文/附件",
+    "note": "正式印发页面，附件可下载。",
+    "direct_url": "https://www.lanzhou.gov.cn/module/download/downfile.jsp?classid=0&filename=8aa9f134402b4dc0bbf69b1c280636fc.pdf",
+    "full_page_seed": ""
+  },
+  {
+    "province": "甘肃省",
+    "area": "陇南市",
+    "seed_url": "https://zwfw.gansu.gov.cn/longnan/zczx/tzgg/art/2026/art_d950ca582f8c43a9a25784ac7c148149.html",
+    "source": "甘肃政务服务/陇南",
+    "prior_status": "B 已确认审议/通过，全文待定位",
+    "note": "官方材料可确认十五五纲要草案及主要目标；正式全文入口未定位。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "甘肃省",
+    "area": "平凉市",
+    "seed_url": "https://www.pingliang.gov.cn/zfxxgk/fdzdgknr/tjxx/tjfx/index.html",
+    "source": "平凉市人民政府",
+    "prior_status": "A2 官方正式入口/目录",
+    "note": "政府信息公开目录已列正式十五五纲要印发文件。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "甘肃省",
+    "area": "庆阳市",
+    "seed_url": "https://zgqingyang.gov.cn/gk/zfxxgk/zcwjk/zcwj1/szfwj/qzf/content_29068",
+    "source": "庆阳市人民政府",
+    "prior_status": "A1 官方全文/附件",
+    "note": "正式政府文件页面。",
+    "direct_url": "https://zgqingyang.gov.cn/upload/main/contentmanage/share/file/2026/04/16/9fc6a63c0db44e1a8f87e8a6d492e634.pdf",
+    "full_page_seed": ""
+  },
+  {
+    "province": "甘肃省",
+    "area": "天水市",
+    "seed_url": "https://www.tianshui.gov.cn/fgw/info/1584/63012.htm",
+    "source": "天水市发展和改革委员会",
+    "prior_status": "B 已确认通过/发布，全文待定位",
+    "note": "官方材料可确认十五五规划审查/批准事项；正式纲要全文入口未定位。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "甘肃省",
+    "area": "武威市",
+    "seed_url": "",
+    "source": "",
+    "prior_status": "C 未定位正式全文",
+    "note": "检索到政府工作报告/草案信息，但未锁定武威市政府正式批准后的纲要全文。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "甘肃省",
+    "area": "张掖市",
+    "seed_url": "https://www.zhangye.gov.cn/zyszfxxgk/fdzdgknr_5657/qtfdzdgknr/zfgb/zfgb2026/2026_06/wjsy202606/202607/t20260709_1562214.html",
+    "source": "张掖市人民政府",
+    "prior_status": "A2 官方正式入口/目录",
+    "note": "政府公报目录已列正式十五五规划纲要印发文件。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "甘肃省",
+    "area": "甘南藏族自治州",
+    "seed_url": "https://www.zqx.gov.cn/info/1040/94360.htm",
+    "source": "舟曲县人民政府（州内官方线索）",
+    "prior_status": "C 未定位正式全文",
+    "note": "官方线索仅能确认规划纲要草案已提交州人大审查；正式批准后的州政府全文未定位。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "广东省",
+    "area": "潮州市",
+    "seed_url": "",
+    "source": "",
+    "prior_status": "C 未定位官方正式全文",
+    "note": "可检索到人大通过报道，但本轮未锁定潮州市政府正式十五五规划纲要全文/附件。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "广东省",
+    "area": "东莞市",
+    "seed_url": "https://dgrd.dg.gov.cn/dgrd/jyjd/202602/2965600bb88f455491d54aaa68374d76.shtml",
+    "source": "东莞人大",
+    "prior_status": "B 已确认通过/发布，全文待定位",
+    "note": "人大官方信息可确认纲要获批准；市政府正式全文入口未定位。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "广东省",
+    "area": "河源市",
+    "seed_url": "https://www.heyuan.gov.cn/zwgk/index.html",
+    "source": "河源市人民政府",
+    "prior_status": "A1 官方PDF",
+    "note": "正式纲要PDF。",
+    "direct_url": "https://www.heyuan.gov.cn/attachment/0/118/118233/708544.pdf",
+    "full_page_seed": ""
+  },
+  {
+    "province": "广东省",
+    "area": "揭阳市",
+    "seed_url": "https://www.jieyang.gov.cn/zwgk/jcxxgk/fggw/szfwj/content/post_1004715.html",
+    "source": "揭阳市人民政府",
+    "prior_status": "C 未定位官方正式全文",
+    "note": "当前官方页为2026年政府工作报告，只能确认纲要草案提交审查，不能替代正式纲要全文。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "广东省",
+    "area": "茂名市",
+    "seed_url": "",
+    "source": "",
+    "prior_status": "C 未定位官方正式全文",
+    "note": "可确认市人大已批准十五五规划纲要，但本轮未锁定茂名市政府正式全文/附件。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "广东省",
+    "area": "梅州市",
+    "seed_url": "https://www.mzrd.gov.cn/m/show/9478",
+    "source": "梅州市人大",
+    "prior_status": "B 已确认通过/发布，全文待定位",
+    "note": "人大官方信息可确认纲要获批准；市政府正式全文入口未定位。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "广东省",
+    "area": "清远市",
+    "seed_url": "https://www.qyrd.gov.cn/info/9000219192",
+    "source": "清远市人大",
+    "prior_status": "B 已确认通过/发布，全文待定位",
+    "note": "人大官方信息可确认纲要获批准；市政府正式全文入口未定位。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "广东省",
+    "area": "阳江市",
+    "seed_url": "",
+    "source": "",
+    "prior_status": "C 未定位官方正式全文",
+    "note": "可检索到规划草案和后续印发线索，但本轮未锁定阳江市政府正式全文/附件，未用政府工作报告替代。",
+    "direct_url": "",
+    "full_page_seed": ""
+  },
+  {
+    "province": "广东省",
+    "area": "珠海市",
+    "seed_url": "",
+    "source": "",
+    "prior_status": "C 未定位官方正式全文",
+    "note": "可确认市人大已批准十五五规划纲要，但本轮未锁定珠海市政府正式全文/附件。",
+    "direct_url": "",
+    "full_page_seed": ""
+  }
+]
