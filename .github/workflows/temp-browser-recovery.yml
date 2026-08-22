@@ -1,0 +1,120 @@
+name: Temporary Browser Plan Recovery
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  recover-browser:
+    strategy:
+      fail-fast: false
+      max-parallel: 7
+      matrix:
+        include:
+          - slug: anqing
+            province: 安徽省
+            filename: 安徽省安庆市.pdf
+            url: https://tzcjj.anqing.gov.cn/public/4018533/2007330959.html
+          - slug: suzhou
+            province: 安徽省
+            filename: 安徽省宿州市.pdf
+            url: https://www.ahsz.gov.cn/public/2655573/196413551.html
+          - slug: gansu
+            province: 甘肃省
+            filename: 甘肃省.pdf
+            url: https://www.zhangye.gov.cn/zyszfxxgk/fdzdgknr_5657/zyghgy/gmjj/202606/t20260618_1555182.html
+          - slug: lanzhou
+            province: 甘肃省
+            filename: 甘肃省兰州市.pdf
+            url: https://www.lanzhou.gov.cn/module/download/downfile.jsp?classid=0&filename=8aa9f134402b4dc0bbf69b1c280636fc.pdf
+          - slug: qingyang
+            province: 甘肃省
+            filename: 甘肃省庆阳市.pdf
+            url: https://zgqingyang.gov.cn/gk/zfxxgk/zcwjk/zcwj1/szfwj/qzf/content_29068
+          - slug: heyuan
+            province: 广东省
+            filename: 广东省河源市.pdf
+            url: https://www.heyuan.gov.cn/attachment/0/118/118233/708544.pdf
+          - slug: huainan
+            province: 安徽省
+            filename: 安徽省淮南市.pdf
+            url: https://www.huainan.gov.cn/ztzl/szfgb/szfbgswj/index.html
+    runs-on: ubuntu-latest
+    steps:
+      - name: Recover with real browser response / print
+        env:
+          TARGET_URL: ${{ matrix.url }}
+          TARGET_PROVINCE: ${{ matrix.province }}
+          TARGET_FILENAME: ${{ matrix.filename }}
+        run: |
+          python -m pip install --quiet playwright pymupdf
+          cat > /tmp/recover.py <<'PY'
+          import asyncio, os, json, re
+          from pathlib import Path
+          import fitz
+          from playwright.async_api import async_playwright
+
+          url=os.environ['TARGET_URL']
+          province=os.environ['TARGET_PROVINCE']
+          filename=os.environ['TARGET_FILENAME']
+          outdir=Path('browser_recovered')/province
+          outdir.mkdir(parents=True,exist_ok=True)
+          out=outdir/filename
+
+          async def main():
+              async with async_playwright() as p:
+                  browser=await p.chromium.launch(headless=True, executable_path='/usr/bin/google-chrome', args=['--no-sandbox','--disable-dev-shm-usage'])
+                  page=await browser.new_page(viewport={'width':1440,'height':1600}, locale='zh-CN')
+                  response=await page.goto(url, wait_until='domcontentloaded', timeout=120000)
+                  if response is None:
+                      raise RuntimeError('no response')
+                  headers=await response.all_headers()
+                  ctype=(headers.get('content-type') or '').lower()
+                  print('status',response.status,'ctype',ctype,'final',page.url,flush=True)
+                  if 'application/pdf' in ctype or page.url.lower().split('?')[0].endswith('.pdf'):
+                      body=await response.body()
+                      out.write_bytes(body)
+                  else:
+                      await page.wait_for_timeout(5000)
+                      # Force lazy-loaded images to load before printing.
+                      for _ in range(80):
+                          before=await page.evaluate('document.documentElement.scrollTop')
+                          await page.evaluate('window.scrollBy(0, Math.max(window.innerHeight, 1200))')
+                          await page.wait_for_timeout(250)
+                          after=await page.evaluate('document.documentElement.scrollTop')
+                          height=await page.evaluate('document.documentElement.scrollHeight')
+                          if after + 1800 >= height or after == before:
+                              break
+                      await page.evaluate('window.scrollTo(0,0)')
+                      await page.wait_for_timeout(2000)
+                      await page.pdf(path=str(out), format='A4', print_background=True, margin={'top':'10mm','bottom':'10mm','left':'8mm','right':'8mm'}, prefer_css_page_size=True)
+                  await browser.close()
+
+          asyncio.run(main())
+          rec={'file':str(out),'size':out.stat().st_size,'url':url}
+          try:
+              d=fitz.open(out); rec['pages']=d.page_count
+              text=''.join(pg.get_text() for pg in d[:min(40,d.page_count)])
+              rec['text_chars']=len(''.join(text.split()))
+              rec['valid']=d.page_count>0
+              rec['snippet']=' '.join(text.split())[:300]
+          except Exception as e:
+              rec['valid']=False; rec['error']=repr(e)
+          Path('browser_validation.json').write_text(json.dumps(rec,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps(rec,ensure_ascii=False,indent=2),flush=True)
+          if not rec['valid']:
+              raise SystemExit('invalid recovered PDF')
+          PY
+          python /tmp/recover.py
+      - name: Upload browser-recovered document
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-recovered-${{ matrix.slug }}
+          path: |
+            browser_recovered
+            browser_validation.json
+          if-no-files-found: error
+          retention-days: 1
