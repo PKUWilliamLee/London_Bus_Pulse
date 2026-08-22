@@ -1,0 +1,55 @@
+name: Temporary Original Plan Attachments
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  fetch:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - slug: wuhu
+            province: 安徽省
+            filename: 安徽省芜湖市.pdf
+            url: https://www.wuhu.gov.cn/group1/M00/2A/E5/rBwdTGombi2AdfwxABGYvBkQxis098.pdf
+          - slug: foshan
+            province: 广东省
+            filename: 广东省佛山市.pdf
+            url: https://www.cnbayarea.org.cn/attachment/0/15/15950/1335229.pdf
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download original attachment
+        run: |
+          mkdir -p "original/${{ matrix.province }}"
+          curl -L --fail --retry 4 --retry-delay 2 --connect-timeout 20 --max-time 600 \
+            -A 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131 Safari/537.36' \
+            '${{ matrix.url }}' -o "original/${{ matrix.province }}/${{ matrix.filename }}"
+          file "original/${{ matrix.province }}/${{ matrix.filename }}"
+          ls -lh "original/${{ matrix.province }}/${{ matrix.filename }}"
+      - name: Validate
+        run: |
+          python -m pip install --quiet pymupdf
+          python - <<'PY'
+          from pathlib import Path
+          import fitz, json
+          p=next(Path('original').rglob('*.pdf'))
+          d=fitz.open(p)
+          text=''.join(pg.get_text() for pg in d[:min(30,d.page_count)])
+          rec={'file':str(p),'size':p.stat().st_size,'pages':d.page_count,'text_chars':len(''.join(text.split())),'valid':d.page_count>0}
+          Path('validation.json').write_text(json.dumps(rec,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps(rec,ensure_ascii=False,indent=2))
+          if not rec['valid']:
+              raise SystemExit(1)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: original-${{ matrix.slug }}
+          path: |
+            original
+            validation.json
+          retention-days: 1
