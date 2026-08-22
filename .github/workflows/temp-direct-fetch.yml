@@ -9,53 +9,75 @@ permissions:
 
 jobs:
   fetch-direct:
+    strategy:
+      fail-fast: false
+      max-parallel: 7
+      matrix:
+        include:
+          - slug: anqing
+            province: 安徽省
+            filename: 安徽省安庆市.pdf
+            url: https://tzcjj.anqing.gov.cn/group1/M00/02/38/FBUWEWpCJsWAXJlGADiEn0V8Zk0814.pdf
+          - slug: fuzhou
+            province: 福建省
+            filename: 福建省福州市.pdf
+            url: https://www.fuzhou.gov.cn/zfxxgkzl/szfbmjxsqxxgk/szfbmxxgk/fzsrmzf/zfxxgkml/gmjjhshfzghzxghqyghjxgzc/202605/P020260519391401872300.pdf
+          - slug: gansu
+            province: 甘肃省
+            filename: 甘肃省.pdf
+            url: https://gansu.gov.cn/gsszf/c100054/202604/174311821/files/0a95a6daefba4013b15d1dd2215f690f.pdf
+          - slug: baiyin
+            province: 甘肃省
+            filename: 甘肃省白银市.pdf
+            url: https://www.jingyuan.gov.cn/api-gateway/jpaas-web-server/front/document/download?fileUrl=YW5UzzlvCwcM%2FNHHX%2FtT6F%2FnPdG3RIuCuoXOuOqGvcMPO0riKXFEW%2BInf30QcZ%2BeGymmRcZu3l0AYtFffePMqQnmTT3uA8z7COsbbb4xA7IavXSZahX6qu08drPr%2FtzpVXnvMzRWO0KaLjjlA6RqMpo6Z7cvXBieN3ZCx2l4PIE%3D&fileName=%E7%99%BD%E9%93%B6%E5%B8%82%E5%9B%BD%E6%B0%91%E7%BB%8F%E6%B5%8E%E5%92%8C%E7%A4%BE%E4%BC%9A%E5%8F%91%E5%B1%95%E7%AC%AC%E5%8D%81%E4%BA%94%E4%B8%AA%E4%BA%94%E5%B9%B4%E8%A7%84%E5%88%92%E7%BA%B2%E8%A6%81.pdf
+          - slug: lanzhou
+            province: 甘肃省
+            filename: 甘肃省兰州市.pdf
+            url: https://www.lanzhou.gov.cn/module/download/downfile.jsp?classid=0&filename=8aa9f134402b4dc0bbf69b1c280636fc.pdf
+          - slug: qingyang
+            province: 甘肃省
+            filename: 甘肃省庆阳市.pdf
+            url: https://zgqingyang.gov.cn/upload/main/contentmanage/share/file/2026/04/16/9fc6a63c0db44e1a8f87e8a6d492e634.pdf
+          - slug: heyuan
+            province: 广东省
+            filename: 广东省河源市.pdf
+            url: https://www.heyuan.gov.cn/attachment/0/118/118233/708544.pdf
     runs-on: ubuntu-latest
     steps:
-      - name: Download known official attachments
+      - name: Download one known official attachment
         shell: bash
         run: |
           set -uo pipefail
-          mkdir -p 'direct/安徽省' 'direct/福建省' 'direct/甘肃省' 'direct/广东省'
-          fetch() {
-            local url="$1" out="$2"
-            echo "FETCH $out"
-            curl -L --fail --retry 4 --retry-delay 2 --connect-timeout 20 --max-time 300 \
-              -A 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131 Safari/537.36' \
-              "$url" -o "$out" || { echo "FAILED $out"; rm -f "$out"; return 0; }
-            file "$out" || true
-            ls -lh "$out" || true
-          }
-          fetch 'https://tzcjj.anqing.gov.cn/group1/M00/02/38/FBUWEWpCJsWAXJlGADiEn0V8Zk0814.pdf' 'direct/安徽省/安徽省安庆市.pdf'
-          fetch 'https://www.fuzhou.gov.cn/zfxxgkzl/szfbmjxsqxxgk/szfbmxxgk/fzsrmzf/zfxxgkml/gmjjhshfzghzxghqyghjxgzc/202605/P020260519391401872300.pdf' 'direct/福建省/福建省福州市.pdf'
-          fetch 'https://gansu.gov.cn/gsszf/c100054/202604/174311821/files/0a95a6daefba4013b15d1dd2215f690f.pdf' 'direct/甘肃省/甘肃省.pdf'
-          fetch 'https://www.jingyuan.gov.cn/api-gateway/jpaas-web-server/front/document/download?fileUrl=YW5UzzlvCwcM%2FNHHX%2FtT6F%2FnPdG3RIuCuoXOuOqGvcMPO0riKXFEW%2BInf30QcZ%2BeGymmRcZu3l0AYtFffePMqQnmTT3uA8z7COsbbb4xA7IavXSZahX6qu08drPr%2FtzpVXnvMzRWO0KaLjjlA6RqMpo6Z7cvXBieN3ZCx2l4PIE%3D&fileName=%E7%99%BD%E9%93%B6%E5%B8%82%E5%9B%BD%E6%B0%91%E7%BB%8F%E6%B5%8E%E5%92%8C%E7%A4%BE%E4%BC%9A%E5%8F%91%E5%B1%95%E7%AC%AC%E5%8D%81%E4%BA%94%E4%B8%AA%E4%BA%94%E5%B9%B4%E8%A7%84%E5%88%92%E7%BA%B2%E8%A6%81.pdf' 'direct/甘肃省/甘肃省白银市.pdf'
-          fetch 'https://www.lanzhou.gov.cn/module/download/downfile.jsp?classid=0&filename=8aa9f134402b4dc0bbf69b1c280636fc.pdf' 'direct/甘肃省/甘肃省兰州市.pdf'
-          fetch 'https://zgqingyang.gov.cn/upload/main/contentmanage/share/file/2026/04/16/9fc6a63c0db44e1a8f87e8a6d492e634.pdf' 'direct/甘肃省/甘肃省庆阳市.pdf'
-          fetch 'https://www.heyuan.gov.cn/attachment/0/118/118233/708544.pdf' 'direct/广东省/广东省河源市.pdf'
-      - name: Validate downloaded files
+          mkdir -p "direct/${{ matrix.province }}"
+          curl -L --fail --retry 4 --retry-delay 2 --connect-timeout 20 --max-time 300 \
+            -A 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131 Safari/537.36' \
+            '${{ matrix.url }}' -o "direct/${{ matrix.province }}/${{ matrix.filename }}"
+          file "direct/${{ matrix.province }}/${{ matrix.filename }}"
+          ls -lh "direct/${{ matrix.province }}/${{ matrix.filename }}"
+      - name: Validate downloaded PDF
         run: |
           python -m pip install --quiet pymupdf
           python - <<'PY'
           from pathlib import Path
-          import fitz, json
-          rows=[]
-          for p in Path('direct').rglob('*.pdf'):
-              rec={'file':str(p),'size':p.stat().st_size}
-              try:
-                  d=fitz.open(p); rec['pages']=d.page_count
-                  txt=''.join(page.get_text() for page in d[:min(20,d.page_count)])
-                  rec['text_chars']=len(''.join(txt.split()))
-                  rec['valid']=d.page_count>0
-              except Exception as e:
-                  rec['valid']=False; rec['error']=repr(e)
-              rows.append(rec)
-          Path('direct_validation.json').write_text(json.dumps(rows,ensure_ascii=False,indent=2),encoding='utf-8')
-          print(json.dumps(rows,ensure_ascii=False,indent=2))
+          import fitz, json, os
+          p=next(Path('direct').rglob('*.pdf'))
+          rec={'file':str(p),'size':p.stat().st_size}
+          try:
+              d=fitz.open(p); rec['pages']=d.page_count
+              txt=''.join(page.get_text() for page in d[:min(30,d.page_count)])
+              rec['text_chars']=len(''.join(txt.split()))
+              rec['valid']=d.page_count>0
+          except Exception as e:
+              rec['valid']=False; rec['error']=repr(e)
+          Path('direct_validation.json').write_text(json.dumps(rec,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps(rec,ensure_ascii=False,indent=2))
+          if not rec['valid']:
+              raise SystemExit('invalid PDF')
           PY
-      - name: Upload direct official documents
+      - name: Upload direct official document
         uses: actions/upload-artifact@v4
         with:
-          name: recovered-direct-official-plans
+          name: recovered-direct-${{ matrix.slug }}
           path: |
             direct
             direct_validation.json
