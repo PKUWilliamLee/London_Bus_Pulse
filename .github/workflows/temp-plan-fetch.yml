@@ -11,18 +11,45 @@ jobs:
   fetch:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - province: 安徽省
+            slug: anhui
+          - province: 福建省
+            slug: fujian
+          - province: 甘肃省
+            slug: gansu
+          - province: 广东省
+            slug: guangdong
     steps:
       - uses: actions/checkout@v4
       - name: Install recovery dependencies
         run: |
           python -m pip install --quiet requests beautifulsoup4 pymupdf python-docx
+      - name: Limit crawler to one province
+        env:
+          TARGET_PROVINCE: ${{ matrix.province }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          p = Path('tools/collect_plans.py')
+          s = p.read_text(encoding='utf-8')
+          needle = "TARGETS = json.loads((BASE / 'tools' / 'plan_targets.json').read_text(encoding='utf-8'))\n"
+          replacement = needle + "TARGETS = [t for t in TARGETS if t.get('province') == os.environ['TARGET_PROVINCE']]\n"
+          if needle not in s:
+              raise SystemExit('TARGETS marker not found')
+          p.write_text(s.replace(needle, replacement, 1), encoding='utf-8')
+          PY
       - name: Recover official planning documents
         run: |
           python tools/collect_plans.py
       - name: Upload recovered documents and audit report
         uses: actions/upload-artifact@v4
         with:
-          name: recovered-official-plans
+          name: recovered-official-plans-${{ matrix.slug }}
           path: recovered_plans
           if-no-files-found: error
           retention-days: 1
