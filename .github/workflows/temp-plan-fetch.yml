@@ -34,7 +34,6 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          import os
           p = Path('tools/collect_plans.py')
           s = p.read_text(encoding='utf-8')
           needle = "TARGETS = json.loads((BASE / 'tools' / 'plan_targets.json').read_text(encoding='utf-8'))\n"
@@ -44,6 +43,8 @@ jobs:
           p.write_text(s.replace(needle, replacement, 1), encoding='utf-8')
           PY
       - name: Recover official planning documents
+        env:
+          TARGET_PROVINCE: ${{ matrix.province }}
         run: |
           python tools/collect_plans.py
       - name: Upload recovered documents and audit report
