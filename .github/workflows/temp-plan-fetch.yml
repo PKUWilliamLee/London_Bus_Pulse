@@ -10,16 +10,19 @@ permissions:
 jobs:
   fetch:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
-      - name: Run search probe
+      - name: Install recovery dependencies
         run: |
-          python -m pip install --quiet requests beautifulsoup4
-          python tools/temp_plan_search.py
-      - name: Upload result
+          python -m pip install --quiet requests beautifulsoup4 pymupdf python-docx
+      - name: Recover official planning documents
+        run: |
+          python tools/collect_plans.py
+      - name: Upload recovered documents and audit report
         uses: actions/upload-artifact@v4
         with:
-          name: temporary-plan-search-probe
-          path: search_results.json
+          name: recovered-official-plans
+          path: recovered_plans
           if-no-files-found: error
           retention-days: 1
