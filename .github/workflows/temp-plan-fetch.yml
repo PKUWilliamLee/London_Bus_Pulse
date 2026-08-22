@@ -1,0 +1,30 @@
+name: Temporary Plan Fetch
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download test official PDF
+        run: |
+          set -euxo pipefail
+          mkdir -p out
+          curl -L --fail --retry 3 --connect-timeout 20 --max-time 180 \
+            -A 'Mozilla/5.0' \
+            'https://www.fuzhou.gov.cn/zfxxgkzl/szfbmjxsqxxgk/szfbmxxgk/fzsrmzf/zfxxgkml/gmjjhshfzghzxghqyghjxgzc/202605/P020260519391401872300.pdf' \
+            -o 'out/fuzhou.pdf'
+          file out/fuzhou.pdf
+          ls -lh out/fuzhou.pdf
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: temporary-plan-fetch-test
+          path: out
+          if-no-files-found: error
+          retention-days: 1
